@@ -30,7 +30,7 @@
             <span class="text-xl font-bold whitespace-nowrap">Newsroom <span class="hidden sm:inline">Intelligence</span></span>
         </div>
         <div class="text-xs text-right font-bold bg-blue-800 px-3 py-1.5 rounded-full border border-blue-700 shadow-inner flex items-center">
-            <i class="fa-regular fa-clock text-blue-300 mr-1.5"></i> 10:29 PM
+            <i class="fa-regular fa-clock text-blue-300 mr-1.5"></i> 10:33 PM
         </div>
       </div>
       
@@ -46,6 +46,9 @@
             <button @click="activeTab = 'trend'" :class="activeTab === 'trend' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-fire text-red-500"></i> Trend <span class="bg-gray-100 text-gray-700 font-bold border text-[10px] px-1.5 rounded-full" x-text="trendNews.length"></span>
             </button>
+            <button @click="activeTab = 'summary'" :class="activeTab === 'summary' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+                <i class="fa-solid fa-bolt text-yellow-600"></i> Summary
+            </button>
             <button @click="activeTab = 'missed'" :class="activeTab === 'missed' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-radar-border text-orange-500"></i> Missed <span class="bg-gray-100 text-gray-700 font-bold border text-[10px] px-1.5 rounded-full" x-text="missedNews.length"></span>
             </button>
@@ -57,9 +60,6 @@
             </button>
             <button @click="activeTab = 'health'" :class="activeTab === 'health' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-server text-purple-500"></i> System
-            </button>
-            <button @click="activeTab = 'summary'" :class="activeTab === 'summary' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
-                <i class="fa-solid fa-bolt text-yellow-600"></i> Summary
             </button>
             <button @click="activeTab = 'tools'" :class="activeTab === 'tools' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
                 <i class="fa-solid fa-toolbox text-teal-600"></i> Tools
