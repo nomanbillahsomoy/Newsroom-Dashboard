@@ -30,7 +30,7 @@
             <span class="text-xl font-bold whitespace-nowrap">Newsroom <span class="hidden sm:inline">Intelligence</span></span>
         </div>
         <div class="text-xs text-right font-bold bg-blue-800 px-3 py-1.5 rounded-full border border-blue-700 shadow-inner flex items-center">
-            <i class="fa-regular fa-clock text-blue-300 mr-1.5"></i> 10:53 PM
+            <i class="fa-regular fa-clock text-blue-300 mr-1.5"></i> 10:57 PM
         </div>
       </div>
       
@@ -111,17 +111,42 @@
             </div>
 
             <!-- LEAD NEWS TAB -->
-            <div x-show="activeTab === 'leads'" x-transition class="space-y-6">
-                <div class="mb-4">
-                    <h2 class="text-3xl font-bold text-gray-800">Top Lead News</h2>
-                    <p class="text-gray-500 mt-1">সর্বশেষ আপডেট হওয়া সকল পোর্টালের প্রধান খবরগুলো এক নজরে।</p>
+            <div x-show="activeTab === 'leads'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4 flex flex-col md:flex-row md:items-center justify-between">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">Top Lead News</h2>
+                        <p class="text-gray-500 mt-1">সবচেয়ে বড় পোর্টালগুলোর বর্তমান লিড নিউজ</p>
+                    </div>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div x-show="leadChanges.length > 0" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    <div class="bg-indigo-50 rounded-xl p-4 border border-indigo-100">
+                        <h3 class="text-sm font-bold text-indigo-800 mb-3"><i class="fa-solid fa-arrows-rotate mr-2"></i>লিড পরিবর্তন (২৪ ঘণ্টা)</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="item in leadChanges">
+                                <span class="bg-white text-indigo-900 border border-indigo-200 px-2.5 py-1 rounded-md text-xs font-bold shadow-sm">
+                                    <span x-text="item.portal"></span>: <span class="text-red-500" x-text="item.count"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div class="lg:col-span-2 bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                        <h3 class="text-sm font-bold text-yellow-800 mb-3"><i class="fa-solid fa-bolt mr-2"></i>হট টপিক (২৪ ঘণ্টার লিড)</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="item in leadTopics">
+                                <span class="bg-white text-yellow-900 border border-yellow-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1">
+                                    <span x-text="item.word"></span> <span class="bg-yellow-100 text-yellow-800 px-1.5 rounded-full text-[10px]" x-text="item.count"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     <template x-for="(item, index) in leadNews" :key="index">
                         <div :class="item.is_error ? 'border-red-400 bg-red-50' : 'border-blue-200 bg-white'" class="rounded-xl shadow-sm border p-5 relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md">
-                            <a :href="item.url" target="_blank" class="block font-bold text-blue-800 text-sm mb-3 uppercase tracking-wider" x-text="'➤ ' + item.portal"></a>
-                            
+                            <a :href="item.url" target="_blank" class="block font-bold text-blue-800 text-sm mb-3 uppercase tracking-wider" x-text="'📰 ' + item.portal"></a>
                             <template x-if="item.is_error">
                                 <span class="bg-red-100 text-red-800 text-sm font-semibold px-2.5 py-1 rounded" x-text="item.headline"></span>
                             </template>
@@ -130,12 +155,6 @@
                             </template>
                         </div>
                     </template>
-                </div>
-                
-                <div x-show="leadNews.length === 0" class="text-center py-10 bg-white rounded-lg shadow-sm border border-gray-100">
-                    <i class="fa-solid fa-triangle-exclamation text-5xl text-yellow-500 mb-4 opacity-80"></i>
-                    <h3 class="text-2xl font-bold text-gray-700">No Lead News Found</h3>
-                    <p class="text-gray-500 mt-2">The fetch_30_leads.py script might not have run recently or failed to create latest_leads.json.</p>
                 </div>
             </div>
 
