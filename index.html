@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <meta name="description" content="Professional Newsroom Intelligence and Editorial Command Center.">
+    <meta property="og:title" content="Newsroom Intelligence Dashboard v3">
+    <meta property="og:description" content="Monitor 30+ portals, lead trends, and missed news in real-time.">
+    <meta property="og:type" content="website">
+    <meta name="theme-color" content="#1e293b">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/2965/2965306.png" type="image/png">
+
+    <title>Newsroom Intelligence v3</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap');
+        body { font-family: 'Noto Sans Bengali', sans-serif; background-color: #f1f5f9; }
+        .hide-scroll::-webkit-scrollbar { display: none; }
+        .hide-scroll { -ms-overflow-style: none; scrollbar-width: none; }
+        .loader { border: 3px solid #f3f3f3; border-top: 3px solid #6366f1; border-radius: 50%; width: 32px; height: 32px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        [x-cloak] { display: none !important; }
+    </style>
+</head>
+<body x-data="newsroomApp()" x-init="initApp()" class="text-slate-800 antialiased selection:bg-indigo-200">
+    
+    <!-- Navbar -->
+    <nav class="bg-[#0f172a] text-white sticky top-0 z-50 shadow-md">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 flex justify-between items-center h-16">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 bg-indigo-600 rounded-lg flex items-center justify-center font-bold text-lg shadow-inner">
+                    <i class="fa-solid fa-bolt text-yellow-300"></i>
+                </div>
+                <div class="flex flex-col">
+                    <a href="#home" class="font-bold text-xl leading-tight tracking-wide hover:text-indigo-300 transition-colors">Newsroom <span class="text-indigo-400">v3</span></a>
+                    <span class="text-[10px] text-slate-400 uppercase tracking-widest font-semibold">Intelligence Platform</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <div class="hidden md:flex text-xs bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700 items-center gap-2">
+                    <i class="fa-solid fa-clock text-indigo-400"></i>
+                    <span x-text="currentTime" class="font-medium tracking-wide"></span>
+                </div>
+                <div class="flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-md" 
+                     :class="{'bg-yellow-500/20 text-yellow-400': dataLoadStatus === 'loading', 'bg-green-500/20 text-green-400': dataLoadStatus === 'success', 'bg-red-500/20 text-red-400': dataLoadStatus === 'error'}">
+                    <i class="fa-solid" :class="{'fa-arrows-rotate fa-spin': dataLoadStatus === 'loading', 'fa-check-circle': dataLoadStatus === 'success', 'fa-triangle-exclamation': dataLoadStatus === 'error'}"></i>
+                    <span x-text="dataLoadStatus === 'loading' ? 'Syncing...' : (dataLoadStatus === 'success' ? 'Live' : 'Offline')"></span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="bg-[#1e293b] border-t border-slate-700/50 hide-scroll overflow-x-auto shadow-inner">
+            <div class="max-w-[1400px] mx-auto px-4 sm:px-6 flex gap-1">
+                <template x-for="menu in menus" :key="menu.id">
+                    <a :href="'#' + menu.id" 
+                       :class="currentRoute === menu.id ? 'border-indigo-400 text-indigo-300 bg-slate-800' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-700/50'"
+                       class="px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition-all duration-200 flex items-center gap-2">
+                        <i :class="menu.icon"></i>
+                        <span x-text="menu.label"></span>
+                    </a>
+                </template>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="max-w-[1400px] mx-auto px-4 sm:px-6 py-6">
+        
+        <!-- Loading State Overlay -->
+        <div x-show="dataLoadStatus === 'loading'" class="flex flex-col items-center justify-center min-h-[50vh] text-slate-400">
+            <div class="loader mb-4"></div>
+            <p class="font-semibold tracking-wide">Fetching News Intelligence...</p>
+        </div>
+
+        <div x-show="dataLoadStatus === 'success'" x-cloak class="w-full">
+            
+            <!-- ROUTE: HOME (Command Center) -->
+            <div x-show="currentRoute === 'home'" x-transition.opacity.duration.300ms class="space-y-6 w-full">
+                
+                <!-- Trending Row -->
+                <div class="bg-white px-4 py-3 rounded-xl border border-slate-200 shadow-sm flex items-center gap-3 overflow-x-auto hide-scroll">
+                    <span class="text-orange-600 font-bold whitespace-nowrap flex items-center gap-2 text-sm uppercase tracking-wider"><i class="fa-solid fa-fire text-orange-500"></i> Trending Now:</span>
+                    <template x-for="trend in apiData.trends.slice(0, 10)" :key="trend.topic">
+                        <span class="px-3 py-1 bg-slate-50 text-slate-700 text-sm rounded-full border border-slate-200 whitespace-nowrap font-medium cursor-pointer hover:bg-orange-50 hover:text-orange-600 hover:border-orange-200 transition-colors" x-text="trend.headline"></span>
+                    </template>
+                </div>
+
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    
+                    <!-- Left Col (Top Lead) -->
+                    <div class="lg:col-span-2 space-y-6">
+                        
+                        <!-- Mega Lead Card -->
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col min-h-[400px]">
+                            <div class="bg-[#0f172a] text-white px-5 py-3 flex justify-between items-center">
+                                <h3 class="font-bold tracking-widest text-xs uppercase flex items-center gap-2 text-slate-300">
+                                    <span class="w-2 h-2 rounded-full bg-red-500 animate-pulse"></span>
+                                    Top Lead Story
+                                </h3>
+                                <span class="text-xs bg-indigo-500/20 text-indigo-300 font-bold px-2.5 py-1 rounded-md border border-indigo-500/30" x-text="apiData.leads[0]?.sources_count + ' Portals Covering'"></span>
+                            </div>
+                            <div class="p-8 md:p-12 flex-grow flex flex-col justify-center items-center text-center relative overflow-hidden bg-gradient-to-b from-white to-slate-50">
+                                <i class="fa-solid fa-quote-left absolute top-8 left-8 text-6xl text-slate-100"></i>
+                                <h1 class="text-3xl md:text-5xl font-extrabold text-slate-800 leading-[1.3] mb-6 relative z-10" x-text="apiData.leads[0]?.headline"></h1>
+                                
+                                <div class="flex flex-wrap justify-center gap-2 mt-4 relative z-10 max-w-2xl">
+                                    <template x-for="article in apiData.leads[0]?.articles.slice(0, 8)" :key="article.portal">
+                                        <a :href="article.link" target="_blank" class="text-[11px] bg-white border border-slate-200 text-slate-600 px-2.5 py-1 rounded shadow-sm hover:border-indigo-300 hover:text-indigo-600 transition-colors" x-text="article.portal"></a>
+                                    </template>
+                                    <span x-show="(apiData.leads[0]?.articles.length || 0) > 8" class="text-[11px] bg-slate-100 border border-slate-200 text-slate-500 px-2.5 py-1 rounded shadow-sm" x-text="'+' + (apiData.leads[0].articles.length - 8) + ' আরও'"></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sub Leads Row -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <template x-for="subLead in apiData.leads.slice(1, 3)" :key="subLead.headline">
+                                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col hover:border-indigo-300 transition-colors cursor-pointer group">
+                                    <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                                        <span>Major Story</span>
+                                        <span class="text-indigo-500" x-text="subLead.sources_count + ' Portals'"></span>
+                                    </span>
+                                    <h3 class="text-lg font-bold text-slate-700 leading-snug group-hover:text-indigo-700 transition-colors" x-text="subLead.headline"></h3>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+
+                    <!-- Right Col (Sidebar) -->
+                    <div class="space-y-6">
+                        
+                        <!-- Portal Monitor -->
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[400px]">
+                            <div class="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center sticky top-0 z-10">
+                                <h3 class="font-bold text-slate-700 text-xs uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fa-solid fa-satellite-dish text-green-500"></i> Portal Monitor
+                                </h3>
+                                <span class="text-xs bg-slate-200 text-slate-600 px-2 py-0.5 rounded-full font-bold" x-text="portalStats.length"></span>
+                            </div>
+                            <div class="p-0 overflow-y-auto flex-grow hide-scroll relative">
+                                <template x-for="portal in portalStats" :key="portal.name">
+                                    <div class="px-4 py-3 border-b border-slate-100 flex justify-between items-center hover:bg-slate-50 transition-colors group">
+                                        <div class="flex items-center gap-3">
+                                            <div class="w-2 h-2 rounded-full shadow-sm" :class="portal.status === 'live' ? 'bg-green-500 shadow-green-200' : (portal.status === 'stale' ? 'bg-yellow-400 shadow-yellow-200' : 'bg-red-500 shadow-red-200')"></div>
+                                            <span class="font-bold text-slate-600 text-sm group-hover:text-slate-900 transition-colors" x-text="portal.name"></span>
+                                        </div>
+                                        <div class="flex flex-col items-end gap-0.5">
+                                            <span class="text-[10px] font-bold text-slate-400" x-text="portal.time"></span>
+                                            <span class="text-xs bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded font-semibold border border-slate-200" x-text="portal.count"></span>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Missed Alert -->
+                        <div class="bg-white rounded-xl border border-red-200 shadow-sm overflow-hidden">
+                            <div class="bg-red-50 px-4 py-3 border-b border-red-100">
+                                <h3 class="font-bold text-red-700 text-xs uppercase tracking-wider flex items-center gap-2">
+                                    <i class="fa-solid fa-triangle-exclamation"></i> Missed by Prothom Alo
+                                </h3>
+                            </div>
+                            <div class="p-4 space-y-4">
+                                <template x-for="missed in apiData.missed.slice(0, 3)" :key="missed.headline">
+                                    <div class="border-l-2 border-red-400 pl-3 group cursor-pointer">
+                                        <h4 class="font-bold text-slate-700 text-sm leading-snug group-hover:text-red-600 transition-colors" x-text="missed.headline"></h4>
+                                        <p class="text-[11px] text-slate-400 mt-1 font-medium" x-text="(missed.articles[0]?.portal || '') + ' - ' + (missed.articles[0]?.timestamp?.split(' ')[1] || '')"></p>
+                                    </div>
+                                </template>
+                                <div x-show="apiData.missed.length === 0" class="text-sm text-green-600 font-medium py-2 flex items-center gap-2">
+                                    <i class="fa-solid fa-check-circle"></i> No missed news found!
+                                </div>
+                            </div>
+                        </div>
+                        
+                    </div>
+                </div>
+            </div>
+
+
+            <!-- ROUTE: ALL NEWS -->
+            <div x-show="currentRoute === 'all'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-4">
+                <div class="flex flex-col sm:flex-row justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
+                    <h3 class="font-bold text-lg text-slate-700 flex items-center gap-2"><i class="fa-solid fa-list text-indigo-500"></i> সব খবর (২৪ ঘণ্টা)</h3>
+                    <div class="relative w-full sm:w-72">
+                        <i class="fa-solid fa-search absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
+                        <input type="text" x-model="searchQuery" placeholder="খুঁজুন..." class="w-full border border-slate-300 rounded-lg pl-9 pr-4 py-2 text-sm focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-shadow">
+                    </div>
+                </div>
+                <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
+                    <table class="w-full text-left text-sm">
+                        <thead class="bg-slate-50 text-slate-500 uppercase font-semibold text-xs tracking-wider">
+                            <tr><th class="px-6 py-4 border-b border-slate-200">Portal</th><th class="px-6 py-4 border-b border-slate-200">Headline</th><th class="px-6 py-4 border-b border-slate-200">Time</th></tr>
+                        </thead>
+                        <tbody class="divide-y divide-slate-100">
+                            <template x-for="news in filteredAllNews.slice(0, 100)" :key="news.link">
+                                <tr class="hover:bg-slate-50 transition-colors group">
+                                    <td class="px-6 py-3 font-semibold text-slate-600 whitespace-nowrap" x-text="news.portal"></td>
+                                    <td class="px-6 py-3 font-medium text-slate-800 group-hover:text-indigo-600 transition-colors"><a :href="news.link" target="_blank" x-text="news.headline"></a></td>
+                                    <td class="px-6 py-3 text-slate-400 whitespace-nowrap text-xs font-mono" x-text="news.time"></td>
+                                </tr>
+                            </template>
+                            <tr x-show="filteredAllNews.length === 0"><td colspan="3" class="px-6 py-8 text-center text-slate-400">কোনো খবর পাওয়া যায়নি!</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ROUTE: LEAD INTELLIGENCE -->
+            <div x-show="currentRoute === 'lead'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-5">
+                <div class="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between shadow-sm">
+                    <h3 class="font-bold text-indigo-900 flex items-center gap-2"><i class="fa-solid fa-star text-yellow-500"></i> লিড ক্লাস্টার অ্যানালাইসিস</h3>
+                    <span class="text-xs bg-indigo-600 text-white px-3 py-1 rounded-full font-bold" x-text="apiData.leads.length + ' Clusters'"></span>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <template x-for="(cluster, idx) in apiData.leads" :key="idx">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 hover:shadow-md transition-shadow flex flex-col">
+                            <div class="flex justify-between items-start mb-4 gap-4">
+                                <h3 class="text-lg font-bold text-slate-800 leading-snug" x-text="cluster.headline"></h3>
+                                <span class="bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md text-[10px] font-bold whitespace-nowrap shadow-sm border border-indigo-200 flex items-center gap-1"><i class="fa-solid fa-layer-group"></i> <span x-text="cluster.sources_count"></span></span>
+                            </div>
+                            <div class="flex flex-wrap gap-1.5 mt-auto">
+                                <template x-for="art in cluster.articles" :key="art.portal">
+                                    <span class="text-[10px] bg-slate-50 border border-slate-200 px-2 py-0.5 rounded text-slate-500" x-text="art.portal"></span>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ROUTE: TRENDING -->
+            <div x-show="currentRoute === 'trend'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-5">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+                    <template x-for="trend in apiData.trends" :key="trend.topic">
+                        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                            <div class="bg-orange-50 px-4 py-3 border-b border-orange-100 flex justify-between items-center">
+                                <span class="font-bold text-orange-700" x-text="trend.headline"></span>
+                                <span class="text-[10px] bg-orange-500 text-white px-2 py-0.5 rounded font-bold" x-text="trend.articles.length + ' News'"></span>
+                            </div>
+                            <div class="p-0 overflow-y-auto max-h-60 hide-scroll flex-grow">
+                                <ul class="divide-y divide-slate-100">
+                                    <template x-for="art in trend.articles" :key="art.link">
+                                        <li class="p-3 hover:bg-slate-50 text-sm">
+                                            <a :href="art.link" target="_blank" class="text-slate-700 hover:text-indigo-600 font-medium leading-snug block mb-1" x-text="art.headline"></a>
+                                            <span class="text-[10px] text-slate-400 font-semibold" x-text="art.portal"></span>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- ROUTE: MISSED NEWS -->
+            <div x-show="currentRoute === 'missed'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-4">
+                <template x-for="missed in apiData.missed" :key="missed.headline">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-red-300 transition-colors border-l-4 border-l-red-500">
+                        <div>
+                            <h3 class="font-bold text-slate-800 text-lg leading-snug mb-1" x-text="missed.headline"></h3>
+                            <div class="flex gap-3 text-xs font-semibold text-slate-500">
+                                <span class="flex items-center gap-1 text-indigo-600"><i class="fa-solid fa-newspaper"></i> <span x-text="missed.articles[0]?.portal"></span></span>
+                                <span class="flex items-center gap-1"><i class="fa-regular fa-clock"></i> <span x-text="missed.articles[0]?.timestamp?.split(' ')[1]"></span></span>
+                            </div>
+                        </div>
+                        <a :href="missed.link" target="_blank" class="shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors">পড়ুন <i class="fa-solid fa-arrow-right ml-1"></i></a>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ROUTE: EXCLUSIVE -->
+            <div x-show="currentRoute === 'exclusive'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-4">
+                <template x-for="exc in apiData.exclusive" :key="exc.headline">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:border-emerald-300 transition-colors border-l-4 border-l-emerald-500">
+                        <div>
+                            <span class="bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded text-[10px] font-bold uppercase mb-2 inline-block" x-text="exc.category || 'Special'"></span>
+                            <h3 class="font-bold text-slate-800 text-lg leading-snug mb-1" x-text="exc.headline"></h3>
+                            <div class="flex gap-3 text-xs font-semibold text-slate-500">
+                                <span class="flex items-center gap-1 text-emerald-600"><i class="fa-solid fa-newspaper"></i> <span x-text="exc.portal"></span></span>
+                                <span class="flex items-center gap-1"><i class="fa-regular fa-clock"></i> <span x-text="exc.timestamp?.split(' ')[1]"></span></span>
+                            </div>
+                        </div>
+                        <a :href="exc.link" target="_blank" class="shrink-0 bg-slate-100 hover:bg-slate-200 text-slate-700 px-4 py-2 rounded-lg text-sm font-bold transition-colors">পড়ুন <i class="fa-solid fa-arrow-right ml-1"></i></a>
+                    </div>
+                </template>
+            </div>
+
+            
+            <!-- ROUTE: SUMMARY -->
+            <div x-show="currentRoute === 'summary'" x-cloak x-transition.opacity.duration.300ms class="w-full space-y-6">
+                <!-- Header Card -->
+                <div class="bg-gradient-to-r from-blue-900 to-indigo-900 rounded-xl p-6 shadow-md text-white flex flex-col md:flex-row md:justify-between md:items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold mb-1 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-blue-300"></i> শিফট সামারি ও অ্যানালিটিক্স</h2>
+                        <p class="text-blue-200 text-sm opacity-90">সর্বশেষ ২৪ ঘণ্টার নিউজ ড্যাশবোর্ড পারফরম্যান্স রিপোর্ট</p>
+                    </div>
+                    <div class="md:text-right">
+                        <p class="text-xs text-blue-300 mb-1">Last Data Sync</p>
+                        <p class="font-mono text-lg font-bold" x-text="apiData.system?.health?.last_fetch || 'N/A'"></p>
+                    </div>
+                </div>
+
+                <!-- Stats Grid -->
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-newspaper mr-1"></i> Total Headlines</p>
+                        <h3 class="text-3xl font-extrabold text-slate-800" x-text="apiData.allNews.length"></h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-tower-broadcast mr-1"></i> Active Portals</p>
+                        <h3 class="text-3xl font-extrabold text-blue-600" x-text="portalStats.filter(p => p.count > 0).length + ' / 30'"></h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-fire mr-1"></i> Major Trends</p>
+                        <h3 class="text-3xl font-extrabold text-orange-600" x-text="apiData.trends.length || 0"></h3>
+                    </div>
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-center items-center text-center">
+                        <p class="text-xs text-slate-500 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-triangle-exclamation mr-1"></i> Missed Signals</p>
+                        <h3 class="text-3xl font-extrabold text-red-600" x-text="apiData.missed.length || 0"></h3>
+                    </div>
+                </div>
+
+                <!-- Detailed Breakdown Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Portal Leaderboard -->
+                    <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                        <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fa-solid fa-ranking-star text-yellow-500"></i> পোর্টাল অ্যাক্টিভিটি (Top 10)</h3>
+                        <div class="space-y-3">
+                            <template x-for="(portal, idx) in portalStats.slice(0, 10)" :key="portal.name">
+                                <div class="flex justify-between items-center p-2 hover:bg-slate-50 rounded-lg transition-colors border-b border-slate-100 last:border-0">
+                                    <div class="flex items-center gap-3">
+                                        <span class="text-xs font-bold text-slate-400 w-4" x-text="idx + 1 + '.'"></span>
+                                        <span class="font-semibold text-slate-700 text-sm" x-text="portal.name"></span>
+                                    </div>
+                                    <span class="bg-indigo-50 text-indigo-700 px-2.5 py-1 rounded-md text-xs font-bold" x-text="portal.count + ' News'"></span>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <!-- Quick Insights -->
+                    <div class="space-y-6">
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                            <h3 class="font-bold text-slate-700 mb-4 flex items-center gap-2"><i class="fa-solid fa-bolt text-amber-500"></i> ট্রেন্ড মুভমেন্ট (Top 3)</h3>
+                            <div class="space-y-3">
+                                <template x-for="trend in (apiData.trends.slice ? apiData.trends.slice(0,3) : [])" :key="trend.headline">
+                                    <div class="p-4 bg-orange-50/50 border border-orange-100 rounded-lg">
+                                        <p class="font-bold text-slate-700 text-sm leading-tight mb-2" x-text="trend.headline"></p>
+                                        <p class="text-xs text-orange-600 font-semibold flex items-center gap-1"><i class="fa-solid fa-users-viewfinder"></i> কভার করছে: <span x-text="(trend.articles ? trend.articles.length : 0)"></span>টি পোর্টাল</p>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-white rounded-xl border border-slate-200 shadow-sm p-5">
+                            <h3 class="font-bold text-slate-700 mb-3 flex items-center gap-2"><i class="fa-solid fa-clock-rotate-left text-blue-500"></i> শিফট ইনসাইটস</h3>
+                            <p class="text-sm text-slate-600 leading-relaxed">
+                                এই শিফটে মোট <strong class="text-slate-800" x-text="portalStats.filter(p => p.count > 0).length"></strong>টি পোর্টাল থেকে <strong class="text-slate-800" x-text="apiData.allNews.length"></strong>টি সংবাদ সংগ্রহ করা হয়েছে। সবচেয়ে বেশি সংবাদ প্রকাশ করেছে <strong class="text-indigo-600" x-text="portalStats[0]?.name"></strong>। সিস্টেমের ডেটাবেস সাইজ বর্তমানে <strong class="text-slate-800" x-text="(apiData.system?.health?.db_size_mb || 0) + ' MB'"></strong>।
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ROUTE: SEO -->
+            <div x-show="currentRoute === 'seo'" x-cloak x-transition.opacity.duration.300ms class="w-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <template x-for="(words, category) in apiData.seo" :key="category">
+                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
+                        <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wider mb-4 border-b border-slate-100 pb-2 flex items-center gap-2"><i class="fa-solid fa-hashtag text-indigo-400"></i> <span x-text="category"></span></h3>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="item in words" :key="item.word">
+                                <span class="px-2.5 py-1 bg-slate-50 border border-slate-200 text-slate-600 rounded text-xs font-medium hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 transition-colors cursor-pointer" x-text="item.word + ' (' + item.count + ')'"></span>
+                            </template>
+                        </div>
+                    </div>
+                </template>
+            </div>
+
+            <!-- ROUTE: TOOLS -->
+            <div x-show="currentRoute === 'tools'" x-cloak x-transition.opacity.duration.300ms class="w-full max-w-5xl mx-auto space-y-5">
+                <!-- Title & Tags -->
+                <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                    <label class="block text-xs font-bold text-slate-500 uppercase tracking-wider mb-2"><i class="fa-solid fa-check-double text-indigo-400 mr-1"></i> Title Checker</label>
+                    <div class="relative">
+                        <input type="text" x-model="titleText" placeholder="শিরোনামটি এখানে পেস্ট করে চেক করুন..." 
+                               class="w-full border-2 p-3.5 rounded-lg text-sm focus:outline-none pr-32 transition-colors font-semibold"
+                               :class="titleText.length === 0 ? 'border-slate-200 focus:border-indigo-400' : (isTitleValid ? 'border-green-400 bg-green-50 text-green-900 focus:border-green-500' : 'border-red-400 bg-red-50 text-red-900 focus:border-red-500')">
+                        <div class="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold" 
+                             :class="titleText.length === 0 ? 'text-slate-400' : (isTitleValid ? 'text-green-600' : 'text-red-600')">
+                            <span x-text="titleWordCount"></span>/9 W, <span x-text="titleText.length"></span>/76 C
+                        </div>
+                    </div>
+                    
+                    <div x-show="autoTags.length > 0" x-collapse class="mt-4 flex flex-col sm:flex-row items-start sm:items-center gap-3">
+                        <span class="text-xs font-bold text-slate-500 uppercase whitespace-nowrap"><i class="fa-solid fa-tags text-indigo-400 mr-1"></i> Auto Tags:</span>
+                        <input type="text" :value="autoTags" readonly class="w-full bg-slate-50 border border-slate-200 text-sm p-2 rounded text-indigo-700 outline-none font-medium">
+                        <button @click="navigator.clipboard.writeText(autoTags)" class="shrink-0 bg-indigo-100 hover:bg-indigo-200 text-indigo-700 text-xs px-4 py-2.5 rounded-lg font-bold transition-colors flex items-center gap-2 shadow-sm border border-indigo-200">
+                            <i class="fa-solid fa-copy"></i> Copy
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- Editor -->
+                <div class="bg-white rounded-xl border border-slate-200 shadow-sm flex flex-col overflow-hidden">
+                    <div class="bg-slate-50 border-b border-slate-200 p-2.5 flex gap-1.5 flex-wrap items-center">
+                        <button @click="undo()" title="Undo (Ctrl+Z)" :disabled="historyIndex <= 0" :class="historyIndex <= 0 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'" class="p-2 rounded transition-colors"><i class="fa-solid fa-rotate-left"></i></button>
+                        <button @click="redo()" title="Redo (Ctrl+Y)" :disabled="historyIndex >= history.length - 1" :class="historyIndex >= history.length - 1 ? 'text-slate-300 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-200'" class="p-2 rounded transition-colors"><i class="fa-solid fa-rotate-right"></i></button>
+                        <div class="w-px h-6 bg-slate-300 mx-2"></div>
+                        <button @click="toolsText = ''" class="px-3 py-1.5 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-trash-can"></i> Clear</button>
+                        <button @click="navigator.clipboard.writeText(toolsText)" class="px-3 py-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-copy"></i> Copy</button>
+                        <div class="w-px h-6 bg-slate-300 mx-2"></div>
+                        <button @click="autoFormatText()" class="px-3 py-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-green-600 hover:border-green-300 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-align-left"></i> Spacing</button>
+                        <button @click="convertNumbers()" class="px-3 py-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-purple-600 hover:border-purple-300 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-1"></i> ১,২,৩</button>
+                        <button @click="fixQuotes()" class="px-3 py-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-yellow-600 hover:border-yellow-300 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-quote-left"></i> Quotes</button>
+                        <button @click="cleanSpaces()" class="px-3 py-1.5 bg-white border border-slate-200 shadow-sm text-slate-600 hover:text-teal-600 hover:border-teal-300 rounded transition-colors text-xs font-bold flex items-center gap-1.5"><i class="fa-solid fa-broom"></i> Clean</button>
+                    </div>
+                    <textarea x-model="toolsText" @input="handleInput()" @keydown="handleKeydown($event)" placeholder="আপনার সংবাদ এখানে পেস্ট করুন..." class="w-full h-[350px] sm:h-[500px] p-4 sm:p-8 focus:outline-none resize-none font-serif text-lg leading-relaxed text-slate-700 bg-white placeholder-slate-300"></textarea>
+                </div>
+            </div>
+
+
+        </div>
+    
+    </main>
+
+    <!-- Footer / System Analytics -->
+    <footer x-show="dataLoadStatus === 'success'" x-cloak class="mt-8 bg-slate-900 text-slate-400 py-6 border-t border-slate-800 shadow-inner">
+        <div class="max-w-[1400px] mx-auto px-4 sm:px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-satellite-dish text-indigo-500"></i>
+                <span class="font-bold text-slate-300 text-xs tracking-widest uppercase">Newsroom Intelligence System</span>
+            </div>
+            <div class="flex flex-wrap justify-center gap-3 text-[11px] font-mono">
+                <span class="bg-slate-800 px-3 py-1 rounded-md border border-slate-700 flex items-center gap-1.5" title="Database Size"><i class="fa-solid fa-database text-blue-400"></i> <span x-text="(apiData.system?.health?.db_size_mb || 0) + ' MB'"></span></span>
+                <span class="bg-slate-800 px-3 py-1 rounded-md border border-slate-700 flex items-center gap-1.5" title="Execution Time"><i class="fa-solid fa-microchip text-emerald-400"></i> <span x-text="(apiData.system?.health?.exec_stats?.total_time_seconds || 0) + 's'"></span></span>
+                <span class="bg-slate-800 px-3 py-1 rounded-md border border-slate-700 flex items-center gap-1.5" title="Last Backend Sync"><i class="fa-solid fa-server text-purple-400"></i> <span x-text="apiData.system?.health?.last_fetch || 'N/A'"></span></span>
+            </div>
+        </div>
+    </footer>
+
+
+    <!-- Application Logic -->
+    <script>
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('newsroomApp', () => ({
+                currentRoute: 'home',
+                currentTime: 'Loading...',
+                
+                searchQuery: '',
+                get filteredAllNews() {
+                    if (!this.searchQuery) return this.apiData.allNews;
+                    const q = this.searchQuery.toLowerCase();
+                    return this.apiData.allNews.filter(n => n.headline.toLowerCase().includes(q) || n.portal.toLowerCase().includes(q));
+                },
+
+                // Tools State
+                toolsText: '',
+                titleText: '',
+                history: [],
+                historyIndex: -1,
+                isTyping: false,
+                typeTimer: null,
+                
+                get isTitleValid() {
+                    let words = this.titleText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                    return words <= 9 && this.titleText.length <= 76;
+                },
+                get titleWordCount() {
+                    return this.titleText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                },
+                get autoTags() {
+                    let txt = this.toolsText;
+                    if (!txt) return '';
+                    const stopWords = new Set(['অই', 'অতঃপর', 'অতএব', 'অথবা', 'অথচ', 'অদ্য', 'অবধি', 'অবশ্য', 'অনেক', 'অনেকে', 'অনেকেই', 'অন্তত', 'আজ', 'আছে', 'আপনার', 'আপনি', 'আবার', 'আমরা', 'আমাকে', 'আমাদের', 'আমার', 'আমি', 'আর', 'আরও', 'ই', 'ইহা', 'উচিত', 'উত্তর', 'উভয়', 'এ', 'এক', 'একই', 'একটি', 'একবার', 'একে', 'এক্', 'এখন', 'এখনও', 'এখানে', 'এটাই', 'এটা', 'এত', 'এতটাই', 'এতে', 'এদের', 'এব', 'এবং', 'এবার', 'এমন', 'এমনকি', 'এর', 'এরা', 'এল', 'এস', 'এসে', 'ঐ', 'ও', 'ওঁ', 'ওঁদের', 'ওঁর', 'ওঁরা', 'ওই', 'ওকে', 'ওখানে', 'ওদের', 'ওর', 'ওরা', 'কখনও', 'কত', 'কবে', 'কমনে', 'কয়েক', 'কয়েকটি', 'করছে', 'করছেন', 'করতে', 'করবে', 'করবেন', 'করলে', 'করলেন', 'করা', 'করাই', 'করায়', 'করার', 'করি', 'করিতে', 'করিয়া', 'করিয়ে', 'করে', 'করেই', 'করেছিলেন', 'করেছে', 'করেছেন', 'করেন', 'কাউকে', 'কাছ', 'কাছে', 'কাজ', 'কাজে', 'কারও', 'কারণ', 'কি', 'কিংবা', 'কিছু', 'কিছুই', 'কিন্তু', 'কী', 'কে', 'কেউ', 'কেউই', 'কেন', 'কোটি', 'কোন', 'কোনও', 'কোনো', 'ক্ষেত্রে', 'খুব', 'গিয়ে', 'গিয়েছে', 'গেছে', 'গেল', 'গেলে', 'গোটা', 'চলে', 'চান', 'চায়', 'চার', 'চালু', 'চেয়ে', 'ছিল', 'ছিলেন', 'জন', 'জনকে', 'জনের', 'জন্য', 'জন্যওজে', 'জানতে', 'জানা', 'জানানো', 'জানায়', 'জানিয়েছেন', 'জে', 'জ্নজন', 'টি', 'ঠিক', 'তখন', 'তত', 'তথা', 'তবু', 'তবে', 'তা', 'তাঁকে', 'তাঁদের', 'তাঁর', 'তাঁরা', 'তাই', 'তাও', 'তাকে', 'তাতে', 'তাদের', 'তার', 'তারপর', 'তারা', 'তারৈ', 'তাহলে', 'তাহা', 'তাহাতে', 'তাহার', 'তিন', 'তিনি', 'তিনিও', 'তুমি', 'তুলে', 'তেমন', 'তো', 'তোমার', 'থাকবে', 'থাকবেন', 'থাকা', 'থাকায়', 'থাকে', 'থাকেন', 'থেকে', 'থেকেই', 'থেকেও', 'দিকে', 'দিতে', 'দিন', 'দিয়ে', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দু', 'দুই', 'দুটি', 'দুটো', 'দেওয়া', 'দেওয়ার', 'দেওয়াও', 'দেয়', 'দেয়া', 'ধরে', 'ধরা', 'নয়', 'নাকি', 'নাগাদ', 'নানা', 'নিজে', 'নিজেই', 'নিজেদের', 'নিজের', 'নিতে', 'নিয়ে', 'নেই', 'নেওয়া', 'নেওয়ার', 'নেয়া', 'নৌ', 'পর', 'পরে', 'পরেই', 'পরেও', 'পর্যন্ত', 'পাওয়া', 'পাচ', 'পারি', 'পারে', 'পারেন', 'পি', 'পেয়ে', 'পেয়্র্', 'প্রতি', 'প্রথম', 'প্রবাড়ি', 'প্রভৃতি', 'প্রাথমিক', 'প্রায়', 'ফলে', 'ফিরে', 'ফের', 'বক্তব্য', 'বদলে', 'বন', 'বরং', 'বলতে', 'বলল', 'বললেন', 'বলা', 'বলে', 'বলেছেন', 'বলেন', 'বসে', 'বহু', 'বা', 'বাজে', 'বার', 'বি', 'বিনা', 'বিভিন্ন', 'বিশেষ', 'বিষয়টি', 'বেশ', 'বেশি', 'ব্যবহার', 'ব্যাপারে', 'ভাবে', 'ভাবেই', 'মতো', 'মতোই', 'মধ্য', 'লয়ে', 'লক্ষ', 'শুধু', 'শুরু', 'সঙ্গে', 'সঙ্গেও', 'সব', 'সবার', 'সময়ে', 'সময়', 'সহ', 'সহিত', 'সাথে', 'সাধারণ', 'সামনে', 'সি', 'সুতরাং', 'সে', 'সেই', 'সেটি', 'সেটা', 'সেটাই', 'সেখানে', 'সৈ', 'হতে', 'হতেই', 'হয়ে', 'হয়েই', 'হয়েছিল', 'হয়েছে', 'হয়েছেন', 'হয়', 'হয়নি', 'হয়তো', 'হওয়ার', 'হওয়া', 'হল', 'হলে', 'হলেই', 'হলেও', 'হলো', 'হিসেবে', 'হৈল', 'হোক', 'হবে', 'হন', 'হ্যাঁ', 'খবর', 'উপরে', 'নিচে', 'আগে', 'পিছনে', 'কার', 'যায়', 'যান', 'যাবে', 'দেবেন', 'দেন', 'দাও', 'দিস', 'কর', 'করিস', 'করো', 'বল', 'বলিস', 'বলো', 'জান', 'জানি', 'নেন', 'নেবে', 'নাই', 'না', 'নিয়ে', 'দিয়ে', 'গেছেন', 'উঠে', 'উপজেলা', 'জেলা', 'গ্রাম', 'ইউনিয়ন', 'জানায়', 'জানিয়েছেন']);
+                    let cleanTxt = txt.replace(/[^ঀ-৿\s]/g, ' ').replace(/\s+/g, ' ').trim();
+                    let words = cleanTxt.split(' ');
+                    let n = words.length;
+                    let ngramCounts = {};
+                    let addNgram = (phrase, weight) => { ngramCounts[phrase] = (ngramCounts[phrase] || 0) + weight; };
+                    for (let i = 0; i < n; i++) {
+                        let w = words[i];
+                        if (w.length > 2 && !stopWords.has(w) && isNaN(w)) addNgram(w, 1);
+                    }
+                    for (let i = 0; i < n - 1; i++) {
+                        let w1 = words[i], w2 = words[i+1];
+                        if (stopWords.has(w1) || stopWords.has(w2)) continue;
+                        if (w1.length > 2 && w2.length > 2 && isNaN(w1) && isNaN(w2)) addNgram(`${w1} ${w2}`, 1.5);
+                    }
+                    for (let i = 0; i < n - 2; i++) {
+                        let w1 = words[i], w2 = words[i+1], w3 = words[i+2];
+                        if (stopWords.has(w1) || stopWords.has(w3)) continue;
+                        if (w1.length > 2 && w3.length > 2 && isNaN(w1) && isNaN(w3)) addNgram(`${w1} ${w2} ${w3}`, 2.0);
+                    }
+                    let found = Object.keys(ngramCounts).map(p => ({ word: p, count: ngramCounts[p] }));
+                    return found.filter(i => i.count >= 2).sort((a, b) => b.count - a.count).slice(0, 6).map(k => k.word).join(', ');
+                },
+                
+                // Tools Methods
+                saveHistory(val) {
+                    if (this.historyIndex < this.history.length - 1) this.history = this.history.slice(0, this.historyIndex + 1);
+                    this.history.push(val);
+                    if (this.history.length > 50) this.history.shift(); else this.historyIndex++;
+                },
+                undo() {
+                    if (this.historyIndex > 0) {
+                        this.historyIndex--;
+                        this.isTyping = true;
+                        this.toolsText = this.history[this.historyIndex];
+                        setTimeout(() => { this.isTyping = false; }, 50);
+                    }
+                },
+                redo() {
+                    if (this.historyIndex < this.history.length - 1) {
+                        this.historyIndex++;
+                        this.isTyping = true;
+                        this.toolsText = this.history[this.historyIndex];
+                        setTimeout(() => { this.isTyping = false; }, 50);
+                    }
+                },
+                handleKeydown(e) {
+                    if (e.ctrlKey && e.key === 'z') { e.preventDefault(); this.undo(); } 
+                    else if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) { e.preventDefault(); this.redo(); }
+                },
+                handleInput() {
+                    this.isTyping = true;
+                    clearTimeout(this.typeTimer);
+                    this.typeTimer = setTimeout(() => {
+                        this.isTyping = false;
+                        this.saveHistory(this.toolsText);
+                    }, 500);
+                },
+                autoFormatText() {
+                    this.toolsText = this.toolsText.split('\n').map(p => p.trim()).filter(p => p.length > 0).join('\n\n\n');
+                    this.saveHistory(this.toolsText);
+                },
+                convertNumbers() {
+                    const en2bn = {'0':'০','1':'১','2':'২','3':'৩','4':'৪','5':'৫','6':'৬','7':'৭','8':'৮','9':'৯'};
+                    this.toolsText = this.toolsText.replace(/\d/g, m => en2bn[m]);
+                    this.saveHistory(this.toolsText);
+                },
+                fixQuotes() {
+                    this.toolsText = this.toolsText.replace(/"/g, "'").replace(/“/g, "'").replace(/”/g, "'");
+                    this.saveHistory(this.toolsText);
+                },
+                cleanSpaces() {
+                    this.toolsText = this.toolsText.replace(/[ 	]{2,}/g, ' ');
+                    this.saveHistory(this.toolsText);
+                },
+
+                // Data State
+                dataLoadStatus: 'loading',
+                apiData: {
+                    system: null,
+                    allNews: [],
+                    leads: [],
+                    trends: [],
+                    missed: [],
+                    exclusive: [],
+                    seo: {}
+                },
+                
+                // Routes
+                menus: [
+                    { id: 'home', label: 'কমান্ড সেন্টার', icon: 'fa-solid fa-house-chimney' },
+                    { id: 'all', label: 'সব খবর', icon: 'fa-solid fa-list' },
+                    { id: 'lead', label: 'লিড ইন্টেলিজেন্স', icon: 'fa-solid fa-star' },
+                    { id: 'trend', label: 'ট্রেন্ডিং', icon: 'fa-solid fa-fire' },
+                    { id: 'missed', label: 'মিসড নিউজ', icon: 'fa-solid fa-triangle-exclamation' },
+                    { id: 'exclusive', label: 'এক্সক্লুসিভ', icon: 'fa-solid fa-gem' },
+                    { id: 'summary', label: 'শিফট সামারি', icon: 'fa-solid fa-chart-pie' },
+                    { id: 'seo', label: 'এসইও', icon: 'fa-solid fa-magnifying-glass-chart' },
+                    { id: 'tools', label: 'নিউজ টুলস', icon: 'fa-solid fa-toolbox' }
+                ],
+                
+                get currentMenuObj() {
+                    return this.menus.find(m => m.id === this.currentRoute) || this.menus[0];
+                },
+                
+                // Computed Portal Stats for Monitor
+                get portalStats() {
+                    if (!this.apiData.allNews.length) return [];
+                    const stats = {};
+                    this.apiData.allNews.forEach(news => {
+                        if (!stats[news.portal]) {
+                            stats[news.portal] = { count: 0, latestTime: news.time };
+                        }
+                        stats[news.portal].count++;
+                        // Just taking the first encountered time as latest
+                    });
+                    
+                    const arr = Object.keys(stats).map(name => ({
+                        name: name,
+                        count: stats[name].count,
+                        time: stats[name].latestTime.split(',')[0].trim(), // Extract time part (e.g. "01:25 PM")
+                        status: stats[name].count >= 15 ? 'live' : (stats[name].count >= 5 ? 'stale' : 'offline')
+                    }));
+                    
+                    return arr.sort((a, b) => b.count - a.count);
+                },
+                
+                async fetchData() {
+                    this.dataLoadStatus = 'loading';
+                    try {
+                        const ts = new Date().getTime();
+                        const fetchJson = async (url) => {
+                            const res = await fetch(url + '?t=' + ts);
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            return res.json();
+                        };
+                        
+                        const [sys, all, lead, trend, missed, excl, seo] = await Promise.all([
+                            fetchJson('api/system.json').catch(() => null),
+                            fetchJson('api/all_news.json').catch(() => []),
+                            fetchJson('api/lead_news.json').catch(() => []),
+                            fetchJson('api/trends.json').catch(() => []),
+                            fetchJson('api/missed.json').catch(() => []),
+                            fetchJson('api/exclusive.json').catch(() => []),
+                            fetchJson('api/seo.json').catch(() => ({}))
+                        ]);
+                        
+                        this.apiData.system = sys;
+                        this.apiData.allNews = all;
+                        this.apiData.leads = lead.leadTrends || [];
+                        this.apiData.trends = trend;
+                        this.apiData.missed = missed;
+                        let excList = [];
+                        if (excl && typeof excl === 'object' && !Array.isArray(excl)) {
+                            Object.keys(excl).forEach(portal => {
+                                excl[portal].forEach(art => excList.push(art));
+                            });
+                        } else { excList = excl || []; }
+                        this.apiData.exclusive = excList;
+                        this.apiData.seo = seo;
+                        
+                        setTimeout(() => { this.dataLoadStatus = 'success'; }, 300);
+                        
+                    } catch (error) {
+                        console.error("API Sync Failed:", error);
+                        this.dataLoadStatus = 'error';
+                    }
+                },
+
+                initApp() {
+                    const handleHashChange = () => {
+                        const hash = window.location.hash.slice(1);
+                        if (this.menus.some(m => m.id === hash)) {
+                            this.currentRoute = hash;
+                        } else {
+                            this.currentRoute = 'home';
+                            window.location.hash = 'home';
+                        }
+                    };
+                    window.addEventListener('hashchange', handleHashChange);
+                    if (!window.location.hash) window.location.hash = 'home';
+                    else handleHashChange();
+                    
+                    const updateTime = () => {
+                        const options = { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true };
+                        this.currentTime = new Intl.DateTimeFormat('bn-BD', options).format(new Date());
+                    };
+                    updateTime();
+                    setInterval(updateTime, 1000);
+                    
+                    this.fetchData();
+                    
+                    // Init Tools Draft
+                    let draft = localStorage.getItem('v3_newsDraft');
+                    if (draft) this.toolsText = draft;
+                    this.saveHistory(this.toolsText);
+                    this.$watch('toolsText', (val) => {
+                        localStorage.setItem('v3_newsDraft', val);
+                        if (!this.isTyping) this.saveHistory(val);
+                    });
+                }
+            }));
+        });
+    </script>
+
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/Newsroom-Dashboard/sw.js')
+                    .then(reg => console.log('ServiceWorker registered'))
+                    .catch(err => console.error('ServiceWorker error:', err));
+            });
+        }
+    </script>
+</body>
+
+</html>

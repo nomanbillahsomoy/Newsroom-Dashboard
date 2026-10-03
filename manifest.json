@@ -1,0 +1,17 @@
+{
+  "name": "Newsroom Intelligence",
+  "short_name": "Newsroom",
+  "description": "Editorial Command Center for real-time news monitoring.",
+  "start_url": "/Newsroom-Dashboard/index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#1e293b",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2965/2965306.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
