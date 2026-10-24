@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Newsroom Intelligence Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f3f4f6; }
+        .sidebar-active { background-color: #1e3a8a; color: white; border-left: 4px solid #60a5fa; }
+        .sidebar-item { transition: all 0.3s ease; }
+        .sidebar-item:hover { background-color: #e0e7ff; color: #1e3a8a; }
+        .sidebar-active:hover { background-color: #1e3a8a; color: white; }
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .chart-bar { transition: height 1s ease-out; }
+    </style>
+
+    <!-- Critical API Preloads -->
+    <link rel="preload" href="api/system.json" as="fetch" crossorigin="anonymous">
+    <link rel="preload" href="api/lead_news.json" as="fetch" crossorigin="anonymous">
+</head>
+<body class="text-gray-800" x-data="dashboardData()" x-init="initTools()">
+
+    <!-- Top Navbar & Menu -->
+    <nav class="bg-blue-900 text-white shadow-md w-full sticky top-0 z-20 border-b border-blue-800">
+        <div class="max-w-[1600px] mx-auto px-4 h-14 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i class="fa-solid fa-bolt text-yellow-400 text-xl"></i>
+                <h1 class="text-xl font-bold tracking-tight">Newsroom Intelligence</h1>
+            </div>
+            <div class="flex items-center gap-4 text-sm font-medium">
+                <div class="bg-blue-800/50 px-3 py-1.5 rounded-full border border-blue-700/50 flex items-center gap-2">
+                    <i class="fa-regular fa-clock text-blue-300"></i>
+                    <span x-text="lastUpdatedTime"></span>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <nav class="flex flex-wrap gap-2 px-6 py-2 border-b bg-white shadow-sm">
+        <button @click="activeTab = 'all'" :class="activeTab === 'all' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-list-ul"></i> All <span class="bg-white text-blue-800 font-bold border text-[10px] px-1.5 rounded-full" x-text="allNews.length"></span>
+        </button>
+        <button @click="activeTab = 'lead'" :class="activeTab === 'lead' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-star text-yellow-500"></i> Lead <span class="bg-gray-100 text-gray-700 font-bold border text-[10px] px-1.5 rounded-full" x-text="leadNews.length"></span>
+        </button>
+        <button @click="activeTab = 'trend'" :class="activeTab === 'trend' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-fire text-red-500"></i> Trend <span class="bg-gray-100 text-gray-700 font-bold border text-[10px] px-1.5 rounded-full" x-text="trendNews.length"></span>
+        </button>
+        <button @click="activeTab = 'tools'" :class="activeTab === 'tools' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-toolbox text-teal-600"></i> Tools
+        </button>
+        <button @click="activeTab = 'missed'" :class="activeTab === 'missed' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-radar-border text-orange-500"></i> Missed <span class="bg-gray-100 text-gray-700 font-bold border text-[10px] px-1.5 rounded-full" x-text="filteredMissed.length"></span>
+        </button>
+        <button @click="activeTab = 'summary'" :class="activeTab === 'summary' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-bolt text-yellow-600"></i> Summary
+        </button>
+        <button @click="activeTab = 'exclusive'" :class="activeTab === 'exclusive' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-gem text-blue-500"></i> Exclusive
+        </button>
+        <button @click="activeTab = 'seo'" :class="activeTab === 'seo' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-magnifying-glass-chart text-green-600"></i> SEO
+        </button>
+        <button @click="activeTab = 'system'" :class="activeTab === 'system' ? 'bg-blue-100 text-blue-800 font-bold border-blue-500' : 'hover:bg-gray-100 text-gray-600 border-transparent'" class="px-3 py-1.5 rounded-md border-b-2 transition-colors text-sm flex items-center gap-1.5">
+            <i class="fa-solid fa-server text-purple-500"></i> System
+        </button>
+    </nav>
+
+    <!-- Main Content Area -->
+    <main class="p-3 md:p-6 w-full max-w-screen-2xl mx-auto min-h-screen">
+
+        
+        
+        
+        <!-- Error State -->
+        <div x-show="error" class="bg-red-50 border-l-4 border-red-500 p-4 mb-4 mx-4" style="display: none;">
+            <div class="flex items-center">
+                <i class="fa-solid fa-triangle-exclamation text-red-500 mr-3"></i>
+                <p class="text-sm text-red-700 font-medium" x-text="error"></p>
+            </div>
+        </div>
+
+        <div>
+        <!-- ALL NEWS TAB -->
+            <div x-show="activeTab === 'all'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">All News Archive (Last 24h)</h2>
+                    <p class="text-gray-500 mt-1">সব মিডিয়ার সব নিউজ এখানে পাবেন। সার্চ করে যেকোনো নিউজ খুঁজে বের করুন।</p>
+                </div>
+                
+                                  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
+                      <div class="flex flex-col md:flex-row gap-4">
+                          <div class="relative flex-grow">
+                              <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
+                                  <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                              </div>
+                              <input type="text" x-model="searchQuery" class="block w-full p-4 ps-12 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" placeholder="Search headlines, keywords, or portals...">
+                          </div>
+                          
+                          <div class="relative min-w-[220px]">
+                              <div class="absolute inset-y-0 start-0 flex items-center ps-4 pointer-events-none">
+                                  <i class="fa-solid fa-layer-group text-blue-500"></i>
+                              </div>
+                              <select x-model="allNewsCategory" class="block w-full p-4 ps-12 pe-8 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500 appearance-none font-bold cursor-pointer">
+                                  <option value="All News">All News (All Categories)</option>
+                                  <option value="National">National</option>
+                                  <option value="International">International</option>
+                                  <option value="Sports">Sports</option>
+                                  <option value="Entertainment">Entertainment</option>
+                                  <option value="Business">Business</option>
+                                  <option value="Politics">Politics</option>
+                                  <option value="Education">Education</option>
+                                  <option value="Technology">Technology</option>
+                                  <option value="Health">Health</option>
+                                  <option value="Crime & Law">Crime & Law</option>
+                                  <option value="Religion">Religion</option>
+                                  <option value="Opinion">Opinion</option>
+                                  <option value="General">General / Others</option>
+                              </select>
+                              <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-4 text-gray-500">
+                                  <i class="fa-solid fa-chevron-down text-sm"></i>
+                              </div>
+                          </div>
+                      </div>
+                  </div>
+
+                <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                    <div class="max-h-[600px] overflow-y-auto">
+                        <ul class="divide-y divide-gray-100">
+                            <template x-for="(item, index) in filteredAllNews.slice(0, allNewsLimit)" :key="index">
+                                <li class="p-4 hover:bg-slate-50 transition-colors">
+                                    <div class="flex items-center gap-3 mb-1">
+                                        <span class="text-[10px] font-bold bg-blue-100 text-blue-800 px-2 py-0.5 rounded uppercase tracking-wider" x-text="item.portal"></span>
+                                        <span class="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded uppercase tracking-wider" x-show="item.category" x-text="item.category"></span>
+                                        <span class="text-xs text-gray-400" x-text="item.time"></span>
+                                    </div>
+                                    <a :href="item.link" target="_blank" class="text-lg font-bold text-gray-900 hover:text-blue-700 block leading-snug" x-text="item.headline"></a>
+                                </li>
+                            </template>
+                        </ul>
+                      <div x-show="allNewsLimit < filteredAllNews.length" class="mt-6 flex justify-center">
+                          <button @click="allNewsLimit += 100" class="bg-white text-blue-600 font-bold border border-blue-600 px-6 py-2 rounded-full hover:bg-blue-50 transition-colors shadow-sm">
+                              <i class="fa-solid fa-arrow-down mr-2"></i> Load More
+                          </button>
+                      </div>
+                        <div x-show="filteredAllNews.length > 0" class="p-4 text-center text-gray-500 text-sm font-medium border-t bg-gray-50">
+                            Showing <span x-text="Math.min(allNewsLimit, filteredAllNews.length)"></span> results out of <span x-text="filteredAllNews.length"></span> total matches.
+                        </div>
+                        <div x-show="filteredAllNews.length === 0" class="p-10 text-center text-gray-500 text-lg font-medium border-t bg-gray-50">
+                            No news found matching your search.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+                        <!-- LEAD NEWS TAB -->
+            <div x-show="activeTab === 'lead'" x-transition class="space-y-6" style="display: none;">
+                
+                <div class="mb-4 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">Top Lead News</h2>
+                        <p class="text-gray-500 mt-1">দেশের শীর্ষ পোর্টালগুলোর লিড নিউজ, ট্রেন্ড এবং লিড পরিবর্তন।</p>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div class="relative w-full sm:w-64">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                            </div>
+                            <input type="text" x-model="leadSearchQuery" class="block w-full p-2.5 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" placeholder="Search leads...">
+                        </div>
+                        <select x-model="leadFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5">
+                            <option value="30_portals">৩০টি পোর্টালের লিড</option>
+                            <option value="lead_trends">ট্রেন্ড</option>
+                            <option value="lead_changes">লিড চেঞ্জ</option>
+                            <option value="keywords">কিওয়ার্ড</option>
+                            <option value="all">সব</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <!-- 30 PORTALS LEAD -->
+                <div x-show="leadFilter === '30_portals' || leadFilter === 'all'" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+                    <template x-for="(item, index) in filteredLeadNews" :key="'lead-'+index">
+                        <div :class="item.is_error ? 'border-red-400 bg-red-50' : 'border-blue-200 bg-white'" class="rounded-xl shadow-sm border p-5 relative overflow-hidden transition-all hover:-translate-y-1 hover:shadow-md">
+                            <a :href="item.portal_url || item.url" target="_blank" class="block font-bold text-blue-800 text-sm mb-3 uppercase tracking-wider" x-text="item.portal"></a>
+                            <template x-if="item.is_error">
+                                <span class="bg-red-100 text-red-800 text-sm font-semibold px-2.5 py-1 rounded" x-text="item.headline"></span>
+                            </template>
+                            <template x-if="!item.is_error">
+                                <a :href="item.url" target="_blank" class="block font-bold text-lg text-gray-900 leading-tight hover:text-blue-600 transition-colors" x-text="item.headline"></a>
+                            </template>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- LEAD TRENDS -->
+                <div x-show="(leadFilter === 'lead_trends' || leadFilter === 'all') && filteredLeadTrends && filteredLeadTrends.length > 0" class="mb-8 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                    <h3 class="text-xl font-bold mb-4 border-b pb-2"><i class="fa-solid fa-fire text-red-500 mr-2"></i>লিড ট্রেন্ডস (একই লিড কতগুলো পোর্টালে)</h3>
+                    <ul class="space-y-3">
+                        <template x-for="(item, index) in filteredLeadTrends" :key="'lt-'+index">
+                            <li class="bg-gray-50 p-4 rounded-lg border border-gray-200" x-data="{ expanded: false }">
+                                <div class="flex flex-col md:flex-row md:items-start justify-between gap-4 cursor-pointer" @click="expanded = !expanded">
+                                    <div class="flex-grow">
+                                        <h4 class="text-lg font-bold text-gray-900 leading-snug" x-text="item.headline"></h4>
+                                    </div>
+                                    <div class="flex items-center gap-2 flex-shrink-0">
+                                        <span class="bg-red-100 text-red-800 text-sm font-bold px-3 py-1 rounded-full"><span x-text="item.sources_count"></span> Media</span>
+                                        <i class="fa-solid fa-chevron-down text-gray-400 transition-transform" :class="expanded ? 'rotate-180' : ''"></i>
+                                    </div>
+                                </div>
+                                <div x-show="expanded" x-transition class="mt-4 pt-4 border-t border-gray-200">
+                                    <ul class="space-y-2">
+                                        <template x-for="(article, aIndex) in item.articles" :key="'lta-'+aIndex">
+                                            <li class="flex flex-col bg-white p-3 rounded border border-gray-100 shadow-sm">
+                                                <span class="text-xs font-bold text-gray-500 uppercase tracking-wider mb-1" x-text="article.portal"></span>
+                                                <a :href="article.link" target="_blank" class="text-sm font-semibold text-blue-600 hover:text-blue-800 hover:underline leading-snug" x-text="article.headline"></a>
+                                            </li>
+                                        </template>
+                                    </ul>
+                                </div>
+                            </li>
+                        </template>
+                    </ul>
+                </div>
+                
+                <!-- LEAD CHANGES & KEYWORDS -->
+                <div x-show="leadFilter === 'lead_changes' || leadFilter === 'keywords' || leadFilter === 'all'" class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                    
+                    <!-- LEAD CHANGES -->
+                    <div x-show="leadFilter === 'lead_changes' || leadFilter === 'all'" class="bg-indigo-50 rounded-xl p-4 border border-indigo-100" :class="leadFilter === 'lead_changes' ? 'lg:col-span-3' : ''">
+                        <h3 class="text-sm font-bold text-indigo-800 mb-3"><i class="fa-solid fa-arrows-rotate mr-2"></i>লিড পরিবর্তন (গত ২ ঘণ্টার ভেতরে)</h3>
+                        <div x-data="{ selectedPortal: null, selectedHeadlines: [] }">
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="(item, index) in filteredLeadChanges" :key="'lc-'+index">
+                                    <button @click="selectedPortal = item.portal; selectedHeadlines = item.headlines" 
+                                            class="bg-white hover:bg-indigo-100 text-indigo-900 border border-indigo-200 px-2.5 py-1 rounded-md text-xs font-bold shadow-sm cursor-pointer transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-300">
+                                        <span x-text="item.portal"></span>: <span class="text-red-500" x-text="item.count"></span>
+                                    </button>
+                                </template>
+                            </div>
+                            
+                            <div x-show="selectedPortal" style="display: none;" x-transition class="mt-4 p-4 bg-white border border-indigo-200 rounded-lg shadow-inner relative">
+                                <button @click="selectedPortal = null" class="absolute top-2 right-2 text-gray-400 hover:text-red-500 w-6 h-6 flex items-center justify-center rounded-full hover:bg-gray-100"><i class="fa-solid fa-times"></i></button>
+                                <h4 class="font-bold text-indigo-900 border-b pb-2 mb-3 text-sm pr-6"><span x-text="selectedPortal"></span> - এর আগের লিডগুলো</h4>
+                                <ul class="space-y-2 list-disc pl-5">
+                                    <template x-for="(hl, i) in selectedHeadlines" :key="'lch-'+i">
+                                        <li>
+                                            <a :href="hl.link" target="_blank" class="text-sm text-blue-600 hover:text-blue-800 hover:underline font-medium leading-snug block" x-text="hl.headline"></a>
+                                        </li>
+                                    </template>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- KEYWORDS -->
+                    <div x-show="leadFilter === 'keywords' || leadFilter === 'all'" class="bg-yellow-50 rounded-xl p-4 border border-yellow-100" :class="(leadFilter === 'keywords' || leadFilter === 'all') && leadFilter !== 'all' ? 'lg:col-span-3' : 'lg:col-span-2'">
+                        <h3 class="text-sm font-bold text-yellow-800 mb-3"><i class="fa-solid fa-bolt mr-2"></i>হট কিওয়ার্ডস (লিডের ভেতরে)</h3>
+                        <div class="flex flex-wrap gap-2">
+                            <template x-for="(item, index) in filteredLeadTopics" :key="'lk-'+index">
+                                <span class="bg-white text-yellow-900 border border-yellow-200 px-2.5 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1">
+                                    <span x-text="item.word"></span> <span class="bg-yellow-100 text-yellow-800 px-1.5 rounded-full text-[10px]" x-text="item.count"></span>
+                                </span>
+                            </template>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- TREND TAB -->
+            <div x-show="activeTab === 'trend'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4 flex flex-col md:flex-row md:justify-between md:items-end gap-4">
+                    <div>
+                        <h2 class="text-3xl font-bold text-gray-800">Trending Agenda</h2>
+                        <p class="text-gray-500 mt-1">Stories covered by 3 or more portals.</p>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                        <div class="relative w-full sm:w-64">
+                            <div class="absolute inset-y-0 start-0 flex items-center ps-3 pointer-events-none">
+                                <i class="fa-solid fa-magnifying-glass text-gray-400"></i>
+                            </div>
+                            <input type="text" x-model="trendSearchQuery" class="block w-full p-2.5 ps-10 text-sm text-gray-900 border border-gray-300 rounded-lg bg-gray-50 focus:ring-blue-500 focus:border-blue-500" placeholder="Search trends...">
+                        </div>
+                        <select x-model="trendFilter" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block w-full sm:w-48 p-2.5">
+                            <option value="1h">গত ১ম ঘণ্টার ট্রেন্ড</option>
+                            <option value="2h">গত ২য় ঘণ্টার ট্রেন্ড</option>
+                            <option value="3h">গত ৩য় ঘণ্টার ট্রেন্ড</option>
+                            <option value="top30">Top 30 Trends (24h)</option>
+                            <option value="all">সব ট্রেন্ড (24h)</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <template x-for="(item, index) in filteredTrends" :key="'trend-'+index">
+                        <div x-data="{ expanded: false }" class="bg-white rounded-xl shadow-sm border border-gray-100 hover:shadow-md transition-shadow p-5 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 bg-blue-100 text-blue-800 text-xs font-bold px-3 py-1 rounded-bl-lg">
+                                <span x-text="item.sources_count"></span> Portals
+                            </div>
+                            <h3 @click="expanded = !expanded" title="Click to view all headlines" class="font-bold text-xl text-gray-900 leading-tight mb-3 mt-2 pr-12 cursor-pointer hover:text-blue-700 transition-colors flex justify-between items-start">
+                                <span x-text="item.headline"></span>
+                                <i class="fa-solid text-gray-400 mt-1 ml-2 text-sm" :class="expanded ? 'fa-chevron-up' : 'fa-chevron-down'"></i>
+                            </h3>
+                            
+                            <div x-show="expanded" x-transition class="mt-4 border-t pt-4">
+                                <p class="text-xs font-semibold text-gray-500 mb-3 uppercase tracking-wider">শিরোনামের তুলনামূলক চিত্র (Headlines Comparison):</p>
+                                <div class="space-y-2 max-h-48 overflow-y-auto pr-2">
+                                    <template x-for="a in item.articles">
+                                        <div class="bg-gray-50 p-2 rounded border border-gray-100">
+                                            <span class="inline-block bg-blue-100 text-blue-800 text-[10px] px-1.5 py-0.5 rounded font-bold mb-1" x-text="a.portal"></span>
+                                            <a :href="a.link" target="_blank" class="block text-sm text-gray-700 hover:text-blue-700 transition-colors leading-snug" x-text="a.headline"></a>
+                                        </div>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <div x-show="filteredTrends.length === 0" class="p-10 text-center text-gray-500 text-lg font-medium border rounded-xl bg-gray-50">
+                    কোনো ট্রেন্ড পাওয়া যায়নি।
+                </div>
+            </div>
+
+            <!-- MISSED NEWS TAB -->
+            <div x-show="activeTab === 'missed'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4 bg-orange-50 border-l-4 border-orange-500 p-4 rounded-r-lg flex flex-col xl:flex-row justify-between items-start xl:items-center gap-4">
+                    <div>
+                        <h2 class="text-2xl font-bold text-orange-800">Missed News Radar (Last 2 Hours)</h2>
+                        <p class="text-orange-700 mt-1">Stories in the last 2 hours that are <strong class="font-bold">missing from সময় টিভি</strong>.</p>
+                    </div>
+                    
+                    <!-- Filters -->
+                    <div class="flex flex-wrap gap-2 w-full xl:w-auto">
+                        <div class="relative w-full sm:w-auto flex-1 sm:flex-none">
+                            <input type="text" x-model="missedSearch" placeholder="খুঁজুন..." class="w-full pl-3 pr-3 py-1.5 border border-orange-200 rounded text-sm focus:outline-none focus:border-orange-500">
+                        </div>
+                        <select x-model="missedCategory" class="border border-orange-200 text-sm rounded focus:outline-none focus:border-orange-500 p-1.5 bg-white text-orange-900">
+                            <option value="all">All Categories</option>
+                            <option value="National">National</option>
+                            <option value="International">International</option>
+                            <option value="Sports">Sports</option>
+                            <option value="Entertainment">Entertainment</option>
+                            <option value="Business">Business</option>
+                            <option value="Politics">Politics</option>
+                            <option value="Education">Education</option>
+                            <option value="Technology">Technology</option>
+                            <option value="Health">Health</option>
+                            <option value="Crime & Law">Crime & Law</option>
+                            <option value="Religion">Religion</option>
+                            <option value="Opinion">Opinion</option>
+                            <option value="General">General / Others</option>
+                        </select>
+                        <select x-model="missedSort" class="border border-orange-200 text-sm rounded focus:outline-none focus:border-orange-500 p-1.5 bg-white text-orange-900">
+                            <option value="coverage">সর্বোচ্চ কভার করা</option>
+                            <option value="recent">সর্বশেষ ২ ঘণ্টা</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="space-y-4">
+                    <template x-for="(item, index) in filteredMissed" :key="index">
+                        <div class="bg-white rounded-lg shadow-sm border border-orange-100 p-5 flex flex-col md:flex-row md:items-start justify-between gap-4">
+                            <div class="flex-1">
+                                <div class="mb-2 flex items-center">
+                                    <span class="bg-orange-100 text-orange-800 px-2 py-0.5 rounded text-[11px] font-bold tracking-wider uppercase" x-text="item.category || 'General'"></span>
+                                    <span class="text-[12px] text-gray-500 font-bold ml-2 bg-gray-100 px-2 py-0.5 rounded" x-text="item.sources_count + 'টি পোর্টাল'"></span>
+                                </div>
+                                <h3 class="font-bold text-xl text-gray-900 mb-3" x-text="item.headline"></h3>
+                                <div class="flex flex-wrap gap-2 items-center">
+                                    <span class="text-sm text-gray-500">Covered by:</span>
+                                    <template x-for="a in item.articles">
+                                        <a :href="a.url || a.link" target="_blank" class="text-[11px] bg-gray-50 hover:bg-blue-50 text-gray-700 hover:text-blue-700 border border-gray-200 px-2 py-1 rounded shadow-sm font-semibold transition-colors flex items-center gap-1"><span x-text="a.portal"></span><span class="text-gray-400 font-normal ml-1" x-text="formatShortTime(a.timestamp)"></span></a>
+                                    </template>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                    <div x-show="filteredMissed.length === 0" class="text-center py-10 bg-white rounded-lg shadow-sm border border-gray-100">
+                        <i class="fa-solid fa-check-circle text-5xl text-green-500 mb-4 opacity-80"></i>
+                        <h3 class="text-2xl font-bold text-gray-700">All Caught Up!</h3>
+                        <p class="text-gray-500 mt-2">সময় টিভি hasn't missed any stories (or nothing matches filters).</p>
+                    </div>
+                </div>
+            </div>
+
+            <div x-show="activeTab === 'exclusive'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Exclusive / Original Finder</h2>
+                    <p class="text-gray-500 mt-1">Stories covered by exactly <span class="font-bold text-blue-600">ONE</span> portal in the last 24 hours. Showing up to 5 exclusives per portal.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    <template x-for="(articles, portal) in exclusiveNews" :key="portal">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+                            <div class="bg-slate-100 border-b px-4 py-3 font-bold text-slate-800 flex justify-between items-center">
+                                <span x-text="portal"></span>
+                            </div>
+                            <ul class="divide-y divide-gray-100">
+                            <template x-for="(item, index) in articles" :key="index">
+                                  <li class="p-3 hover:bg-slate-50 transition-colors">
+                                      <a :href="item.link" target="_blank" class="text-sm font-bold text-gray-800 hover:text-blue-700 block leading-snug" x-text="item.headline"></a>
+                                      <div class="text-[10px] text-gray-400 mt-1" x-text="item.time"></div>
+                                  </li>
+                              </template>
+                        </ul>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- KEYWORDS & SEO TAB -->
+            <div x-show="activeTab === 'seo'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Keyword & SEO Intelligence</h2>
+                    <p class="text-gray-500 mt-1">Top trending words from the last 24 hours, categorized automatically.</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <template x-for="(kws, cat) in keywords" :key="cat">
+                        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                            <h3 class="font-bold text-lg text-blue-900 border-b pb-2 mb-4" x-text="cat"></h3>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="kw in kws">
+                                    <div class="bg-blue-50 border border-blue-100 text-blue-800 px-3 py-1.5 rounded-full text-sm flex items-center shadow-sm">
+                                        <span x-text="kw.word" class="font-medium"></span>
+                                        <span class="ml-2 bg-blue-200 text-blue-900 text-xs py-0.5 px-2 rounded-full font-bold" x-text="kw.count"></span>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+
+            <!-- SUMMARY TAB -->
+            <div x-show="activeTab === 'summary'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">Shift Summary & Leaderboard</h2>
+                    <p class="text-gray-500 mt-1">সবচেয়ে বড় খবর এবং মিডিয়া স্পিড অ্যানালাইসিস</p>
+                </div>
+                
+                <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                    <div class="lg:col-span-2 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h3 class="text-xl font-bold mb-4 border-b pb-2"><i class="fa-solid fa-fire text-red-500 mr-2"></i>Top 30 Biggest Stories (24h)</h3>
+                        <ul class="space-y-4">
+                            <template x-for="(item, index) in trendNews.slice(0, 30)">
+                                <li class="flex items-start gap-4">
+                                    <div class="bg-blue-100 text-blue-800 font-bold rounded-full w-8 h-8 flex items-center justify-center flex-shrink-0" x-text="index + 1"></div>
+                                    <div>
+                                        <h4 class="text-lg font-bold text-gray-900 leading-snug" x-text="item.headline"></h4>
+                                        <p class="text-sm text-gray-500 mt-1"><span class="font-bold text-gray-700" x-text="item.sources_count"></span> portals covered this. First broken by <span class="font-bold text-blue-600 bg-blue-50 px-2 py-0.5 rounded" x-text="item.breaker"></span></p>
+                                    </div>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                    
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+                        <h3 class="text-xl font-bold mb-4 border-b pb-2"><i class="fa-solid fa-trophy text-yellow-500 mr-2"></i>Breaking News Speed</h3>
+                        <p class="text-xs text-gray-500 mb-4">যেই পোর্টালগুলো সবচেয়ে আগে ট্রেন্ডিং নিউজ ব্রেক করেছে</p>
+                        <ul class="space-y-3">
+                            <template x-for="(item, index) in speedLeaderboard">
+                                <li class="flex items-center justify-between p-3 rounded-lg" :class="index === 0 ? 'bg-yellow-50 border border-yellow-200' : (index === 1 ? 'bg-gray-50 border border-gray-200' : (index === 2 ? 'bg-orange-50 border border-orange-200' : ''))">
+                                    <div class="flex items-center gap-3">
+                                        <span class="font-bold text-gray-400 w-4" x-text="index + 1"></span>
+                                        <span class="font-bold text-gray-800" x-text="item.portal"></span>
+                                    </div>
+                                    <span class="font-bold text-white bg-blue-600 px-2.5 py-1 rounded-full text-xs" x-text="item.count + ' breaks'"></span>
+                                </li>
+                            </template>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+                        <!-- TOOLS TAB -->
+            <div x-show="activeTab === 'tools'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">News Editor & SEO Tool</h2>
+                    <p class="text-gray-500 mt-1">নিউজ এডিট করুন এবং এসইও কিওয়ার্ড ডেনসিটি চেক করুন।</p>
+                </div>
+                
+                <div x-data="{ isFullscreen: false }" :class="isFullscreen ? 'fixed inset-0 z-[100] bg-gray-900 bg-opacity-50 p-4 md:p-10 overflow-y-auto backdrop-blur-sm' : ''">
+                    <div :class="isFullscreen ? 'max-w-7xl mx-auto h-[90vh]' : 'h-auto'" class="bg-white rounded-xl shadow-lg border border-gray-200 flex flex-col transition-all">
+                        
+                        <!-- Toolbar -->
+                        <div class="flex flex-wrap justify-between items-center bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-xl shrink-0">
+                            <div class="flex gap-2 flex-wrap items-center">
+                                <!-- Undo / Redo -->
+                                <button @click="undo()" title="Undo (Ctrl+Z)" :disabled="historyIndex <= 0" :class="historyIndex <= 0 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'" class="p-1.5 rounded transition-colors focus:outline-none"><i class="fa-solid fa-rotate-left"></i></button>
+                                <button @click="redo()" title="Redo (Ctrl+Y)" :disabled="historyIndex >= history.length - 1" :class="historyIndex >= history.length - 1 ? 'text-gray-300 cursor-not-allowed' : 'text-gray-600 hover:bg-gray-200'" class="p-1.5 rounded transition-colors focus:outline-none"><i class="fa-solid fa-rotate-right"></i></button>
+                                
+                                <div class="w-px h-6 bg-gray-300 mx-1"></div>
+                                
+                                <button @click="toolsText = ''" title="Clear text" class="p-1.5 text-gray-500 hover:text-red-600 hover:bg-red-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-trash-can mr-1"></i> Clear</button>
+                                <button @click="navigator.clipboard.writeText(toolsText)" title="Copy text" class="p-1.5 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-copy mr-1"></i> Copy</button>
+                                
+                                <div class="w-px h-6 bg-gray-300 mx-1"></div>
+                                
+                                <button @click="autoFormatText()" title="Auto Spacing (3 line breaks)" class="p-1.5 text-gray-500 hover:text-green-600 hover:bg-green-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-align-left mr-1"></i> Spacing</button>
+                                <button @click="convertNumbers()" title="Convert English numbers to Bangla (1->১)" class="p-1.5 text-gray-500 hover:text-purple-600 hover:bg-purple-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-1 mr-1"></i> ১,২,৩</button>
+                                <button @click="fixQuotes()" title="Fix double quotes to single quotes" class="p-1.5 text-gray-500 hover:text-yellow-600 hover:bg-yellow-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-quote-left mr-1"></i> Quotes</button>
+                                <button @click="cleanSpaces()" title="Clean extra spaces" class="p-1.5 text-gray-500 hover:text-teal-600 hover:bg-teal-50 rounded transition-colors focus:outline-none text-sm"><i class="fa-solid fa-broom mr-1"></i> Clean</button>
+                            </div>
+                            
+                            <div class="flex items-center gap-6">
+                                <div class="text-sm font-semibold text-gray-500">
+                                    <i class="fa-solid fa-font"></i> <span x-text="toolsText.trim() === '' ? 0 : toolsText.trim().split(/\s+/).length"></span> Words
+                                    <span class="mx-2 text-gray-300">|</span>
+                                    <i class="fa-solid fa-align-left"></i> <span x-text="toolsText.length"></span> Chars
+                                </div>
+                                <button @click="isFullscreen = !isFullscreen" title="Toggle Fullscreen" class="px-4 py-2 bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100 rounded-lg transition-colors focus:outline-none shadow-sm flex items-center gap-2 font-bold">
+                                    <i class="fa-solid" :class="isFullscreen ? 'fa-compress' : 'fa-expand'"></i>
+                                    <span x-text="isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'"></span>
+                                </button>
+                            </div>
+                        </div>
+
+                        
+                          <!-- Title & Tags Area -->
+                          <div class="px-5 pt-4 pb-2 bg-gray-50 border-b border-gray-200 space-y-3">
+                              <!-- Title Checker -->
+                              <div>
+                                  <label class="block text-xs font-bold text-gray-600 mb-1">শিরোনাম চেকার (Title Checker)</label>
+                                  <div class="relative">
+                                      <input type="text" x-model="titleText" placeholder="শিরোনামটি এখানে পেস্ট করে চেক করুন..." 
+                                             class="w-full border p-2 rounded text-sm focus:ring-1 focus:outline-none pr-32 transition-colors"
+                                             :class="titleText.length === 0 ? 'border-gray-300 focus:border-blue-400 focus:ring-blue-400' : (isTitleValid ? 'border-green-400 bg-green-50 text-green-900 focus:border-green-500 focus:ring-green-500' : 'border-red-400 bg-red-50 text-red-900 focus:border-red-500 focus:ring-red-500')">
+                                      <div class="absolute right-2 top-1/2 -translate-y-1/2 text-xs font-bold" 
+                                           :class="titleText.length === 0 ? 'text-gray-400' : (isTitleValid ? 'text-green-600' : 'text-red-600')">
+                                          <span x-text="titleWordCount"></span>/9 W, <span x-text="titleText.length"></span>/76 C
+                                      </div>
+                                  </div>
+                              </div>
+                              
+                              
+                          </div>
+
+                          <!-- Editor -->
+                        <div class="flex-grow flex flex-col p-0 relative bg-white">
+                            <!-- Highlight Layer (Backdrop) -->
+                            <div x-ref="backdrop"
+                                 class="absolute inset-0 pointer-events-none break-words whitespace-pre-wrap font-serif leading-relaxed text-transparent overflow-hidden"
+                                 :class="isFullscreen ? 'p-6 text-lg' : 'p-5 text-base'"
+                                 x-html="highlightedText"
+                                 aria-hidden="true">
+                            </div>
+                            <textarea x-model="toolsText" @input="handleInput()" @keydown="handleKeydown($event)" 
+                                      @scroll="$refs.backdrop.scrollTop = $event.target.scrollTop"
+                                      :class="isFullscreen ? 'flex-grow min-h-[400px] text-lg p-6' : 'min-h-[350px] text-base p-5'" 
+                                      class="w-full h-full border-0 focus:ring-0 text-gray-800 resize-none font-serif leading-relaxed bg-transparent z-10" 
+                                      spellcheck="true" 
+                                      lang="bn" 
+                                      placeholder="এখানে আপনার নিউজ পেস্ট করুন বা লিখুন..."></textarea>
+                        </div>
+                        
+                        <!-- Newsroom Style Guide Checker -->
+                        <div class="bg-red-50 border-t border-red-100 p-4 shrink-0" x-show="detectedErrors.length > 0" x-transition>
+                            <div class="flex justify-between items-center mb-3">
+                                <h3 class="text-sm font-bold text-red-800"><i class="fa-solid fa-triangle-exclamation mr-2"></i>কিছু বানান বা শব্দ নিউজরুম পলিসির সাথে মিলছে না:</h3>
+                                <button @click="fixAllErrors()" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1 text-xs font-bold rounded shadow-sm transition-colors">Fix All</button>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <template x-for="err in detectedErrors">
+                                    <div class="flex items-center justify-between bg-white border border-red-200 p-2 rounded shadow-sm">
+                                        <div class="text-sm">
+                                            <span class="text-red-500 font-bold line-through" x-text="err.wrong"></span>
+                                            <i class="fa-solid fa-arrow-right text-gray-400 mx-2"></i>
+                                            <span class="text-green-600 font-bold" x-text="err.right"></span>
+                                        </div>
+                                        <div class="flex gap-2">
+                                            <button @click="prepareRefix(err.baseWrong || err.wrong, err.baseRight || err.right)" class="text-xs bg-yellow-50 hover:bg-yellow-100 text-yellow-700 hover:text-yellow-800 border border-yellow-200 px-2 py-1 rounded transition-colors font-medium" title="এই সাজেশনটি ভুল হলে এখানে ক্লিক করুন">Refix</button>
+                                            <button @click="fixError(err.wrong, err.right)" class="text-xs bg-gray-100 hover:bg-green-100 text-gray-700 hover:text-green-700 border border-gray-200 px-2 py-1 rounded transition-colors font-medium">Fix</button>
+                                        </div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
+                        
+                        <!-- SEO Keyword Density -->
+                        <div class="bg-blue-50 border-t border-blue-100 p-5 shrink-0" x-show="keywordDensity.length > 0">
+                            <h3 class="text-sm font-bold text-blue-900 mb-3"><i class="fa-solid fa-chart-pie mr-2"></i>SEO Keywords in your text:</h3>
+                            <div class="flex flex-wrap gap-2">
+                                <template x-for="kw in keywordDensity">
+                                    <span class="bg-white text-blue-800 border border-blue-200 px-3 py-1 rounded-full text-sm font-bold shadow-sm flex items-center">
+                                        <span x-text="kw.word"></span> 
+                                        <span class="bg-blue-100 text-blue-900 px-2 py-0.5 rounded-full ml-2 text-xs" x-text="kw.count"></span>
+                                    </span>
+                                </template>
+                            </div>
+                        </div>
+
+                        <!-- Add Custom Dictionary Rule -->
+                        
+
+                    </div>
+                </div>
+            </div>
+
+            <!-- SYSTEM HEALTH TAB -->
+            <div x-show="activeTab === 'system'" x-transition class="space-y-6" style="display: none;">
+                <div class="mb-4">
+                    <h2 class="text-3xl font-bold text-gray-800">System Health & Analytics</h2>
+                    <p class="text-gray-500 mt-1">Live status of the Newsroom Intelligence engine and scraper statistics.</p>
+                </div>
+                
+                <!-- Top Metrics -->
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 border-blue-500 p-5">
+                        <p class="text-sm text-gray-500 font-medium">Total 24h Articles</p>
+                        <p class="text-3xl font-bold text-gray-800" x-text="health.total_news"></p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 border-green-500 p-5">
+                        <p class="text-sm text-gray-500 font-medium">Portals Scraped</p>
+                        <p class="text-3xl font-bold text-gray-800" x-text="health.exec_stats?.total_portals_scraped || '30'"></p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 border-yellow-500 p-5">
+                        <p class="text-sm text-gray-500 font-medium">Database Size</p>
+                        <p class="text-3xl font-bold text-gray-800"><span x-text="health.db_size_mb"></span> <span class="text-lg">MB</span></p>
+                    </div>
+                    <div class="bg-white rounded-xl shadow-sm border-l-4 border-purple-500 p-5">
+                        <p class="text-sm text-gray-500 font-medium">Scraping Duration</p>
+                        <p class="text-3xl font-bold text-gray-800"><span x-text="health.exec_stats?.duration_seconds || '0'"></span> <span class="text-lg">sec</span></p>
+                    </div>
+                </div>
+
+                <!-- Scraping Details & Execution Logs -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <!-- Execution Details -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 class="font-bold text-lg text-gray-800 border-b pb-3 mb-4"><i class="fa-solid fa-microchip mr-2 text-gray-500"></i> Execution Statistics</h3>
+                        
+                        <div class="space-y-4">
+                            <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                                <span class="text-gray-600 font-medium">Last Scrape Triggered:</span>
+                                <span class="text-gray-900 font-bold" x-text="health.exec_stats?.start_time || 'N/A'"></span>
+                            </div>
+                            <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                                <span class="text-gray-600 font-medium">New Headlines Found:</span>
+                                <span class="text-gray-900 font-bold bg-green-100 text-green-800 px-2 py-0.5 rounded text-sm" x-text="'+ ' + (health.exec_stats?.new_inserted || '0')"></span>
+                            </div>
+                            <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                                <span class="text-gray-600 font-medium">Total Headlines Parsed:</span>
+                                <span class="text-gray-900 font-bold" x-text="health.exec_stats?.total_found || '0'"></span>
+                            </div>
+                            <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                                <span class="text-gray-600 font-medium">Old Headlines Deleted (>24h):</span>
+                                <span class="text-gray-900 font-bold text-red-500" x-text="'- ' + (health.exec_stats?.deleted_old || '0')"></span>
+                            </div>
+                            
+                            <h4 class="font-bold text-sm text-gray-700 mt-6 mb-2 uppercase tracking-wide"><i class="fa-solid fa-server mr-1"></i> System Diagnostics</h4>
+                            
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                <div class="flex justify-between items-center bg-blue-50 p-2.5 rounded border border-blue-100">
+                                    <span class="text-blue-800 font-medium text-xs"><i class="fa-solid fa-memory mr-1.5 opacity-70"></i> RAM Usage:</span>
+                                    <span class="text-blue-900 font-bold text-xs" x-text="(health.exec_stats?.ram_mb || '0') + ' MB'"></span>
+                                </div>
+                                <div class="flex justify-between items-center bg-blue-50 p-2.5 rounded border border-blue-100">
+                                    <span class="text-blue-800 font-medium text-xs"><i class="fa-solid fa-microchip mr-1.5 opacity-70"></i> CPU Usage:</span>
+                                    <span class="text-blue-900 font-bold text-xs" x-text="health.exec_stats?.cpu_usage || '0%'"></span>
+                                </div>
+                                <div class="flex justify-between items-center bg-blue-50 p-2.5 rounded border border-blue-100">
+                                    <span class="text-blue-800 font-medium text-xs"><i class="fa-solid fa-battery-half mr-1.5 opacity-70"></i> Battery:</span>
+                                    <span class="text-blue-900 font-bold text-xs" x-text="health.exec_stats?.battery || 'N/A'"></span>
+                                </div>
+                                <div class="flex justify-between items-center bg-blue-50 p-2.5 rounded border border-blue-100">
+                                    <span class="text-blue-800 font-medium text-xs"><i class="fa-solid fa-network-wired mr-1.5 opacity-70"></i> Downloaded:</span>
+                                    <span class="text-blue-900 font-bold text-xs" x-text="(health.exec_stats?.bandwidth_mb || '0') + ' MB'"></span>
+                                </div>
+                                <div class="flex justify-between items-center bg-blue-50 p-2.5 rounded border border-blue-100 sm:col-span-2">
+                                    <span class="text-blue-800 font-medium text-xs"><i class="fa-solid fa-gauge-high mr-1.5 opacity-70"></i> Internet Speed:</span>
+                                    <span class="text-blue-900 font-bold text-xs" x-text="health.exec_stats?.internet_speed || '0 MB/s'"></span>
+                                </div>
+                            </div>
+
+                            <h4 class="font-bold text-sm text-gray-700 mt-6 mb-2 uppercase tracking-wide"><i class="fa-solid fa-clock-rotate-left mr-1"></i> Sync Timeline</h4>
+                            <div class="space-y-2">
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-2.5 rounded border">
+                                    <span class="text-gray-600 font-medium text-xs"><i class="fa-solid fa-play text-green-500 mr-1.5"></i> Task Started:</span>
+                                    <span class="text-gray-900 font-bold text-xs" x-text="health.exec_stats?.start_time || 'N/A'"></span>
+                                </div>
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-2.5 rounded border">
+                                    <span class="text-gray-600 font-medium text-xs"><i class="fa-brands fa-github text-gray-700 mr-1.5"></i> Pushed to GitHub:</span>
+                                    <span class="text-gray-900 font-bold text-xs" x-text="health.exec_stats?.github_push_time || 'N/A'"></span>
+                                </div>
+                                <div class="flex flex-col sm:flex-row justify-between sm:items-center bg-gray-50 p-2.5 rounded border border-indigo-200 bg-indigo-50">
+                                    <span class="text-indigo-800 font-medium text-xs"><i class="fa-solid fa-arrows-rotate text-indigo-500 mr-1.5"></i> Dashboard Last Fetched:</span>
+                                    <span class="text-indigo-900 font-bold text-xs" x-text="lastUpdatedTime + ' (Browser Local)'"></span>
+                                </div>
+                            </div>
+                            
+                            <div class="mt-5 p-3 bg-slate-100 rounded border border-slate-200">
+                                <span class="text-xs font-semibold text-slate-500 uppercase block mb-1"><i class="fa-regular fa-folder-open mr-1"></i> Local Project Folder:</span>
+                                <code class="text-[10px] text-slate-700 break-all" x-text="health.exec_stats?.project_folder || 'N/A'"></code>
+                            </div>
+                            <div class="flex justify-between items-center bg-blue-50 p-3 rounded border border-blue-100 mt-2">
+                                <span class="text-blue-800 font-medium"><i class="fa-solid fa-network-wired mr-2 opacity-70"></i> HTML Downloaded:</span>
+                                <span class="text-blue-900 font-bold" x-text="(health.exec_stats?.bandwidth_mb || '0') + ' MB'"></span>
+                            </div>
+                            <div class="mt-4 pt-4 border-t">
+                                <span class="text-xs font-semibold text-gray-500 uppercase">Technology Stack:</span>
+                                <p class="text-sm text-gray-700 mt-1 bg-slate-100 p-2 rounded" x-text="health.exec_stats?.tech_stack || 'Python 3, sqlite3, requests, BeautifulSoup4, playwright'"></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hourly Chart -->
+                    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+                        <h3 class="font-bold text-lg text-gray-800 border-b pb-3 mb-4"><i class="fa-solid fa-chart-column mr-2 text-gray-500"></i> Hourly News Volume (Last 24h)</h3>
+                        
+                        <div class="h-64 flex items-end justify-between gap-1 pt-6 pb-2 border-b-2 border-gray-200 px-2">
+                            <template x-for="h in health.hourly">
+                                <div class="flex flex-col items-center justify-end w-full h-full group relative">
+                                    <!-- Tooltip -->
+                                    <div class="opacity-0 group-hover:opacity-100 absolute top-0 -mt-8 bg-gray-800 text-white text-xs px-2 py-1 rounded transition-opacity z-10 pointer-events-none whitespace-nowrap" x-text="h.count + ' news'"></div>
+                                    <!-- Bar -->
+                                    <div class="w-full bg-blue-500 hover:bg-blue-600 rounded-t-sm chart-bar" :style="'height: ' + h.percent + '%'"></div>
+                                    <!-- X-axis label -->
+                                    <span class="text-[10px] text-gray-500 mt-2 font-medium" x-text="h.hour"></span>
+                                </div>
+                            </template>
+                        </div>
+                        <div class="text-center mt-3 text-xs text-gray-500 font-medium uppercase tracking-widest">Hour of Day (24-Hour Format)</div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        </main>
+
+    <script>
+        
+        
+        document.addEventListener('alpine:init', () => {
+            Alpine.data('dashboardData', () => ({
+                sidebarOpen: true,
+
+                formatShortTime(ts) {
+                    if (!ts) return '';
+                    let match = ts.match(/(\d{2}):(\d{2})/);
+                    if (!match) return ts.split(' ')[1] || '';
+                    let h = parseInt(match[1]);
+                    let m = match[2];
+                    let ampm = h >= 12 ? 'pm' : 'am';
+                    h = h % 12 || 12;
+                    return m === '00' ? h + ampm : h + ':' + m + ampm;
+                },
+
+                activeTab: window.location.hash ? window.location.hash.substring(1) : 'all',
+                isLoading: true,
+                error: null,
+                lastUpdatedTime: '',
+                trendNews: [],
+                  clusters24h: [],
+                  missedClusters2h: [],
+                  benchmarkPortal: '????? ???',
+                  exclusiveNews: [],
+                  keywords: [],
+                  
+                  missedNews: [],
+
+                  missedSearch: '',
+                  missedCategory: 'all',
+                  missedSort: 'coverage',
+                  get filteredMissed() {
+                      let list = this.missedNews || [];
+                      if (this.missedSearch.trim() !== '') {
+                          const q = this.missedSearch.toLowerCase();
+                          list = list.filter(m => m.headline.toLowerCase().includes(q));
+                      }
+                      if (this.missedCategory !== 'all') {
+                          list = list.filter(m => m.category === this.missedCategory);
+                      }
+                      if (this.missedSort === 'coverage') {
+                          list = list.slice().sort((a, b) => b.sources_count - a.sources_count);
+                      } else {
+                          list = list.slice().sort((a, b) => {
+                              const tA = a.articles[0]?.timestamp || '';
+                              const tB = b.articles[0]?.timestamp || '';
+                              return tB.localeCompare(tA);
+                          });
+                      }
+                      return list;
+                  },
+
+                  searchQuery: '',
+                  allNewsCategory: 'All News',
+                    allNewsLimit: 50,
+                  leadFilter: '30_portals',
+                  leadSearchQuery: '',
+                  
+                  toolsText: '',
+                    titleText: '',
+                    history: [],
+                    historyIndex: -1,
+                    isTyping: false,
+                    typeTimer: null,
+                    isDarkMode: false,
+                    userAddedRules: {},
+                  newWrong: '',
+                  newRight: '',
+                  trendSearchQuery: '',
+                  trendFilter: '24h',
+                  health: {},
+                  leadNews: [],
+                  leadChanges: [],
+                  leadTopics: [],
+                  leadTrends: [],
+                  speedLeaderboard: [],
+                  allNews: [],
+                  styleGuide: {},
+                  
+                init() {
+                    const nocache = '?t=' + Date.now();
+                    fetch('api/system.json' + nocache).then(r => r.json()).then(d => { this.health = d.health; this.lastUpdatedTime = d.health.last_fetch; }).catch(console.error);
+                    fetch('api/lead_news.json' + nocache).then(r => r.json()).then(d => { this.leadNews = Object.freeze(d.leadNews); this.leadChanges = d.leadChanges; this.leadTopics = d.leadTopics; this.leadTrends = d.leadTrends || []; }).catch(console.error);
+                    fetch('api/trends.json' + nocache).then(r => r.json()).then(d => { this.trendNews = Object.freeze(d); 
+                        let breakers = {};
+                        d.forEach(cluster => {
+                            if (cluster.articles && cluster.articles.length > 0) {
+                                let breaker = cluster.articles[cluster.articles.length - 1].portal;
+                                breakers[breaker] = (breakers[breaker] || 0) + 1;
+                            }
+                        });
+                        this.speedLeaderboard = Object.entries(breakers).map(([portal, count]) => ({portal, count})).sort((a,b) => b.count - a.count);
+                    }).catch(console.error);
+                    fetch('api/missed.json' + nocache).then(r => r.json()).then(d => { this.missedNews = Object.freeze(d); }).catch(console.error);
+                    fetch('api/exclusive.json' + nocache).then(r => r.json()).then(d => { this.exclusiveNews = Object.freeze(d); }).catch(console.error);
+                    fetch('api/seo.json' + nocache).then(r => r.json()).then(d => { this.keywords = Object.freeze(d); }).catch(console.error);
+                    fetch('api/all_news.json' + nocache).then(r => r.json()).then(d => { this.allNews = Object.freeze(d); }).catch(console.error);
+                    fetch('api/style_guide.json' + nocache).then(r => r.json()).then(d => { this.styleGuide = d; }).catch(console.error);
+                
+                    // Hash routing sync
+                    this.$watch('activeTab', value => {
+                        window.history.replaceState(null, null, '#' + value);
+                    });
+                    window.addEventListener('hashchange', () => {
+                        const h = window.location.hash.substring(1);
+                        if (['all', 'lead', 'trend', 'summary', 'missed', 'exclusive', 'seo', 'system', 'tools'].includes(h)) {
+                            this.activeTab = h;
+                        }
+                    });
+},
+                
+                get filteredLeadNews() {
+                    if (!this.leadSearchQuery.trim()) return this.leadNews;
+                    const q = this.leadSearchQuery.toLowerCase();
+                    return this.leadNews.filter(i => (i.portal && i.portal.toLowerCase().includes(q)) || (i.headline && i.headline.toLowerCase().includes(q)));
+                },
+                get filteredLeadTrends() {
+                    if (!this.leadSearchQuery.trim()) return this.leadTrends;
+                    const q = this.leadSearchQuery.toLowerCase();
+                    return this.leadTrends.filter(i => i.headline && i.headline.toLowerCase().includes(q));
+                },
+                get filteredLeadChanges() {
+                    if (!this.leadSearchQuery.trim()) return this.leadChanges;
+                    const q = this.leadSearchQuery.toLowerCase();
+                    return this.leadChanges.filter(i => i.portal && i.portal.toLowerCase().includes(q));
+                },
+                get filteredLeadTopics() {
+                    if (!this.leadSearchQuery.trim()) return this.leadTopics;
+                    const q = this.leadSearchQuery.toLowerCase();
+                    return this.leadTopics.filter(i => i.word && i.word.toLowerCase().includes(q));
+                },
+                get filteredTrends() {
+                    let res = this.trendNews;
+                    
+                    if (this.trendFilter !== 'all' && this.trendFilter !== '24h' && this.trendFilter !== 'top30') {
+                          let maxHrs = parseInt(this.trendFilter);
+                          if (!isNaN(maxHrs)) {
+                              let minHrs = maxHrs - 1;
+                              res = res.filter(t => t.max_hours >= minHrs && t.max_hours <= maxHrs);
+                          }
+                      }
+                    
+                    if (this.trendSearchQuery.trim()) {
+                        const q = this.trendSearchQuery.toLowerCase();
+                        res = res.filter(i => i.headline && i.headline.toLowerCase().includes(q));
+                    }
+                    
+                    if (this.trendFilter === 'top30') {
+                        res = res.slice(0, 30);
+                    }
+                    
+                    return res;
+                },
+                
+                get detectedErrors() {
+                    let txt = this.toolsText;
+                    if (!txt) return [];
+                    let errors = [];
+                    let combinedGuide = { ...(this.styleGuide || {}), ...this.userAddedRules };
+                    for (const [wrong, right] of Object.entries(combinedGuide)) {
+                        let regex = new RegExp(`(?<![\\u0980-\\u09FF])${wrong}(?![\\u0980-\\u09FF])`);
+                        if (regex.test(txt)) {
+                            errors.push({ wrong: wrong, right: right });
+                        }
+                    }
+                    return errors;
+                },
+                get keywordDensity() {
+                    let txt = this.toolsText;
+                    if (!txt) return [];
+                    
+                    const stopWords = new Set([
+                        'অই', 'অতঃপর', 'অতএব', 'অথবা', 'অথচ', 'অদ্য', 'অবধি', 'অবশ্য', 'অনেক', 'অনেকে', 'অনেকেই', 'অন্তত', 'আজ', 'আছে', 'আপনার', 'আপনি',
+                        'আবার', 'আমরা', 'আমাকে', 'আমাদের', 'আমার', 'আমি', 'আর', 'আরও', 'ই', 'ইহা', 'উচিত', 'উত্তর', 'উভয়', 'এ', 'এক', 'একই', 'একটি',
+                        'একবার', 'একে', 'এক্', 'এখন', 'এখনও', 'এখানে', 'এটাই', 'এটা', 'এত', 'এতটাই', 'এতে', 'এদের', 'এব', 'এবং', 'এবার', 'এমন', 'এমনকি',
+                        'এর', 'এরা', 'এল', 'এস', 'এসে', 'ঐ', 'ও', 'ওঁ', 'ওঁদের', 'ওঁর', 'ওঁরা', 'ওই', 'ওকে', 'ওখানে', 'ওদের', 'ওর', 'ওরা', 'কখনও', 'কত',
+                        'কবে', 'কমনে', 'কয়েক', 'কয়েকটি', 'করছে', 'করছেন', 'করতে', 'করবে', 'করবেন', 'করলে', 'করলেন', 'করা', 'করাই', 'করায়', 'করার', 'করি',
+                        'করিতে', 'করিয়া', 'করিয়ে', 'করে', 'করেই', 'করেছিলেন', 'করেছে', 'করেছেন', 'করেন', 'কাউকে', 'কাছ', 'কাছে', 'কাজ', 'কাজে', 'কারও',
+                        'কারণ', 'কি', 'কিংবা', 'কিছু', 'কিছুই', 'কিন্তু', 'কী', 'কে', 'কেউ', 'কেউই', 'কেন', 'কোটি', 'কোন', 'কোনও', 'কোনো', 'ক্ষেত্রে',
+                        'খুব', 'গিয়ে', 'গিয়েছে', 'গেছে', 'গেল', 'গেলে', 'গোটা', 'চলে', 'চান', 'চায়', 'চার', 'চালু', 'চেয়ে', 'ছিল', 'ছিলেন', 'জন', 'জনকে',
+                        'জনের', 'জন্য', 'জন্যওজে', 'জানতে', 'জানা', 'জানানো', 'জানায়', 'জানিয়েছেন', 'জে', 'জ্নজন', 'টি', 'ঠিক', 'তখন', 'তত', 'তথা', 'তবু',
+                        'তবে', 'তা', 'তাঁকে', 'তাঁদের', 'তাঁর', 'তাঁরা', 'তাই', 'তাও', 'তাকে', 'তাতে', 'তাদের', 'তার', 'তারপর', 'তারা', 'তারৈ', 'তাহলে',
+                        'তাহা', 'তাহাতে', 'তাহার', 'তিন', 'তিনি', 'তিনিও', 'তুমি', 'তুলে', 'তেমন', 'তো', 'তোমার', 'থাকবে', 'থাকবেন', 'থাকা', 'থাকায়',
+                        'থাকে', 'থাকেন', 'থেকে', 'থেকেই', 'থেকেও', 'দিকে', 'দিতে', 'দিন', 'দিয়ে', 'দিয়েছে', 'দিয়েছেন', 'দিলেন', 'দু', 'দুই', 'দুটি',
+                        'দুটো', 'দেওয়া', 'দেওয়ার', 'দেওয়াও', 'দেয়', 'দেয়া', 'ধরে', 'ধরা', 'নয়', 'নাকি', 'নাগাদ', 'নানা', 'নিজে', 'নিজেই', 'নিজেদের',
+                        'নিজের', 'নিতে', 'নিয়ে', 'নেই', 'নেওয়া', 'নেওয়ার', 'নেয়া', 'নৌ', 'পর', 'পরে', 'পরেই', 'পরেও', 'পর্যন্ত', 'পাওয়া', 'পাচ', 'পারি',
+                        'পারে', 'পারেন', 'পি', 'পেয়ে', 'পেয়্র্', 'প্রতি', 'প্রথম', 'প্রবাড়ি', 'প্রভৃতি', 'প্রাথমিক', 'প্রায়', 'ফলে', 'ফিরে', 'ফের', 'বক্তব্য',
+                        'বদলে', 'বন', 'বরং', 'বলতে', 'বলল', 'বললেন', 'বলা', 'বলে', 'বলেছেন', 'বলেন', 'বসে', 'বহু', 'বা', 'বাজে', 'বার', 'বি', 'বিনা',
+                        'বিভিন্ন', 'বিশেষ', 'বিষয়টি', 'বেশ', 'বেশি', 'ব্যবহার', 'ব্যাপারে', 'ভাবে', 'ভাবেই', 'মতো', 'মতোই', 'মধ্য', 'লয়ে', 'লক্ষ', 'শুধু',
+                        'শুরু', 'সঙ্গে', 'সঙ্গেও', 'সব', 'সবার', 'সময়ে', 'সময়', 'সহ', 'সহিত', 'সাথে', 'সাধারণ', 'সামনে', 'সি', 'সুতরাং', 'সে', 'সেই',
+                        'সেটি', 'সেটা', 'সেটাই', 'সেখানে', 'সৈ', 'হতে', 'হতেই', 'হয়ে', 'হয়েই', 'হয়েছিল', 'হয়েছে', 'হয়েছেন', 'হয়', 'হয়নি', 'হয়তো',
+                        'হওয়ার', 'হওয়া', 'হল', 'হলে', 'হলেই', 'হলেও', 'হলো', 'হিসেবে', 'হৈল', 'হোক', 'হবে', 'হন', 'হ্যাঁ', 'খবর', 'উপরে', 'নিচে',
+                        'আগে', 'পিছনে', 'কার', 'যায়', 'যান', 'যাবে', 'দেবেন', 'দেন', 'দাও', 'দিস', 'কর', 'করিস', 'করো', 'বল', 'বলিস', 'বলো', 'জান', 'জানি',
+                        'নেন', 'নেবে', 'নাই', 'না', 'নিয়ে', 'দিয়ে', 'গেছেন', 'উঠে', 'উপজেলা', 'জেলা', 'গ্রাম', 'ইউনিয়ন', 'জানায়', 'জানিয়েছেন'
+                    ]);
+
+                    let cleanTxt = txt.replace(/[^\u0980-\u09FF\s]/g, ' ').replace(/\s+/g, ' ').trim();
+                    let words = cleanTxt.split(' ');
+                    let n = words.length;
+                    
+                    let ngramCounts = {};
+                    let addNgram = (phrase, weight) => {
+                        ngramCounts[phrase] = (ngramCounts[phrase] || 0) + weight;
+                    };
+                    
+                    // Unigrams
+                    for (let i = 0; i < n; i++) {
+                        let w = words[i];
+                        if (w.length > 2 && !stopWords.has(w) && isNaN(w)) {
+                            addNgram(w, 1);
+                        }
+                    }
+                    
+                    // Bigrams
+                    for (let i = 0; i < n - 1; i++) {
+                        let w1 = words[i], w2 = words[i+1];
+                        if (stopWords.has(w1) || stopWords.has(w2)) continue;
+                        if (w1.length > 2 && w2.length > 2 && isNaN(w1) && isNaN(w2)) {
+                            addNgram(`${w1} ${w2}`, 1.5); // Slightly higher weight for phrases
+                        }
+                    }
+                    
+                    // Trigrams
+                    for (let i = 0; i < n - 2; i++) {
+                        let w1 = words[i], w2 = words[i+1], w3 = words[i+2];
+                        if (stopWords.has(w1) || stopWords.has(w3)) continue;
+                        if (w1.length > 2 && w3.length > 2 && isNaN(w1) && isNaN(w3)) {
+                            addNgram(`${w1} ${w2} ${w3}`, 2.0); // Higher weight for trigrams
+                        }
+                    }
+                    
+                    let found = Object.keys(ngramCounts).map(phrase => {
+                        return { word: phrase, count: ngramCounts[phrase] };
+                    });
+                    
+                    // If a bigram contains a unigram, and both appear same number of times in text, we prefer bigram.
+                    // We only show items that appeared multiple times to avoid one-off words.
+                    // Instead of count >= 3, since we're generating from a single article, maybe count >= 2 is better.
+                    // But to keep it strict, let's filter by weighted score > 2 or raw count >= 2.
+                    return found.filter(i => i.count >= 2).sort((a, b) => b.count - a.count).slice(0, 20);
+                },
+                get highlightedText() {
+                    let txt = this.toolsText;
+                    if (!txt) return '';
+                    txt = txt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    
+                    // Simple highlight - replace words. To avoid nested spans, we replace errors first, then we replace SEO words only if they aren't inside an existing span.
+                    // A trick is to use placeholder tokens or just simple regex since it's a basic tool.
+                    this.detectedErrors.forEach(err => {
+                        let regex = new RegExp(`(?<![\\u0980-\\u09FF])${err.wrong}(?![\\u0980-\\u09FF])`, 'g');
+                        txt = txt.replace(regex, `<span class="bg-red-300 rounded text-transparent">${err.wrong}</span>`);
+                    });
+                    
+                    
+                    
+                    txt = txt.replace(/\n/g, '<br>');
+                    txt += '<br>';
+                    return txt;
+                },
+                
+                initTools() {
+                    let draft = localStorage.getItem('newsDraft');
+                    if (draft) this.toolsText = draft;
+                    this.saveHistory(this.toolsText);
+                    
+                    this.$watch('toolsText', (val) => {
+                        localStorage.setItem('newsDraft', val);
+                        if (!this.isTyping) {
+                            this.saveHistory(val);
+                        }
+                    });
+                },
+                saveHistory(val) {
+                    if (this.historyIndex < this.history.length - 1) {
+                        this.history = this.history.slice(0, this.historyIndex + 1);
+                    }
+                    this.history.push(val);
+                    if (this.history.length > 50) this.history.shift();
+                    else this.historyIndex++;
+                },
+                undo() {
+                    if (this.historyIndex > 0) {
+                        this.historyIndex--;
+                        this.isTyping = true;
+                        this.toolsText = this.history[this.historyIndex];
+                        setTimeout(() => { this.isTyping = false; }, 50);
+                    }
+                },
+                redo() {
+                    if (this.historyIndex < this.history.length - 1) {
+                        this.historyIndex++;
+                        this.isTyping = true;
+                        this.toolsText = this.history[this.historyIndex];
+                        setTimeout(() => { this.isTyping = false; }, 50);
+                    }
+                },
+                handleKeydown(e) {
+                    if (e.ctrlKey && e.key === 'z') {
+                        e.preventDefault();
+                        this.undo();
+                    } else if (e.ctrlKey && (e.key === 'y' || (e.shiftKey && (e.key === 'z' || e.key === 'Z')))) {
+                        e.preventDefault();
+                        this.redo();
+                    }
+                },
+                handleInput() {
+                    this.isTyping = true;
+                    clearTimeout(this.typeTimer);
+                    this.typeTimer = setTimeout(() => {
+                        this.isTyping = false;
+                        this.saveHistory(this.toolsText);
+                    }, 500);
+                },
+                convertNumbers() {
+                    const en2bn = {'0':'০','1':'১','2':'২','3':'৩','4':'৪','5':'৫','6':'৬','7':'৭','8':'৮','9':'৯'};
+                    this.toolsText = this.toolsText.replace(/\d/g, match => en2bn[match]);
+                    this.saveHistory(this.toolsText);
+                },
+                fixQuotes() {
+                    this.toolsText = this.toolsText.replace(/"/g, "'").replace(/“/g, "'").replace(/”/g, "'");
+                    this.saveHistory(this.toolsText);
+                },
+                cleanSpaces() {
+                    this.toolsText = this.toolsText.replace(/[ \t]{2,}/g, ' ');
+                    this.saveHistory(this.toolsText);
+                },
+                get autoTags() {
+                    if (!this.keywordDensity || this.keywordDensity.length === 0) return '';
+                    return this.keywordDensity.slice(0, 6).map(k => k.word).join(', ');
+                },
+                get isTitleValid() {
+                    let words = this.titleText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                    return words <= 9 && this.titleText.length <= 76;
+                },
+                get titleWordCount() {
+                    return this.titleText.trim().split(/\s+/).filter(w => w.length > 0).length;
+                },
+                autoFormatText() {
+                    let txt = this.toolsText;
+                    if (!txt) return;
+                    // Split by any number of line breaks, then join with 3 line breaks (2 empty lines)
+                    let paragraphs = txt.split(/\s*[\r\n]+\s*/).filter(p => p.trim() !== '');
+                    this.toolsText = paragraphs.join('\n\n\n');
+                },
+                fixAllErrors() {
+                    let txt = this.toolsText;
+                    this.detectedErrors.forEach(err => {
+                        let regex = new RegExp(`(?<![\\u0980-\\u09FF])${err.wrong}(?![\\u0980-\\u09FF])`, 'g');
+                        txt = txt.replace(regex, err.right);
+                    });
+                    this.toolsText = txt;
+                },
+                fixError(wrong, right) {
+                    let regex = new RegExp(`(?<![\\u0980-\\u09FF])${wrong}(?![\\u0980-\\u09FF])`, 'g');
+                    this.toolsText = this.toolsText.replace(regex, right);
+                },
+                prepareRefix(wrong, right) {
+                    this.newWrong = wrong;
+                    this.newRight = right;
+                    setTimeout(() => {
+                        let el = document.getElementById('newRightInput');
+                        if (el) el.focus();
+                    }, 50);
+                },
+                
+                removeUserRule(wrong) {
+                    delete this.userAddedRules[wrong];
+                },
+                copyUserRules() {
+                    let rules = JSON.stringify(this.userAddedRules, null, 2);
+                    navigator.clipboard.writeText(rules);
+                    alert('Rules copied to clipboard!');
+                },
+                addUserRule() {
+                    if (this.newWrong.trim() && this.newRight.trim()) {
+                        this.userAddedRules[this.newWrong.trim()] = this.newRight.trim();
+                        this.newWrong = '';
+                        this.newRight = '';
+                    }
+                },
+                get filteredAllNews() {
+                    let results = this.allNews;
+                    if (this.allNewsCategory !== 'All News') {
+                        results = results.filter(n => n.category === this.allNewsCategory);
+                    }
+                    if (this.searchQuery.trim() !== '') {
+                        const clean = str => str.toLowerCase().replace(/['`"\.,!\?\-]/g, '');
+                        const lowerQuery = clean(this.searchQuery);
+                        results = results.filter(n => 
+                            clean(n.headline).includes(lowerQuery) || 
+                            clean(n.portal).includes(lowerQuery)
+                        );
+                    }
+                    return results;
+                },
+            }));
+        });
+    </script>
+</body>
+</html>
+
+
+
+
+
+
+
